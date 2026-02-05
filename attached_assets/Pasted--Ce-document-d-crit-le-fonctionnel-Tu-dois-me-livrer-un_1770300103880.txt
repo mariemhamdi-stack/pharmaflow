@@ -1,0 +1,238 @@
+👉 “Ce document décrit le fonctionnel.
+Tu dois me livrer :
+
+un backend API conforme aux règles ci-dessous,
+
+un frontend respectant strictement les parcours décrits,
+
+une base de données qui permet la traçabilité complète (audit trail),
+
+et aucun comportement implicite non validé.”
+
+Et surtout :
+
+⚠️ “Tout champ, statut ou règle non précisé doit être discuté avant implémentation.”
+
+2️⃣ Développement détaillé du cahier (ce que le dev doit coder EXACTEMENT)
+🔐 1. Authentification & gestion des accès
+1.1 Utilisateurs
+
+Champs obligatoires
+
+id
+
+nom
+
+prénom
+
+email (unique)
+
+téléphone
+
+mot_de_passe (hashé)
+
+rôle_id
+
+entité_id (laboratoire / grossiste / pharmacie)
+
+statut (actif / suspendu)
+
+date_création
+
+dernière_connexion
+
+1.2 Règles d’accès
+Rôle	Accès
+Laboratoire	Accès global à toutes les commandes de son labo
+Délégué	Accès uniquement à ses commandes
+Grossiste	Accès uniquement aux commandes qui lui sont attribuées
+Pharmacie	Lecture + confirmation uniquement
+
+👉 À dire au dev :
+
+“Le contrôle d’accès est strict par rôle et par entité, aucune fuite de données inter-laboratoires.”
+
+📦 2. Catalogue produits
+2.1 Produit
+
+Champs
+
+id_produit
+
+code_produit
+
+nom_produit
+
+laboratoire_id
+
+forme
+
+dosage
+
+statut (actif / inactif)
+
+2.2 Règles
+
+Un délégué ne voit que les produits de son laboratoire
+
+Les produits inactifs ne peuvent pas être commandés
+
+🧾 3. Commande – structure exacte
+3.1 Commande (entête)
+
+Champs obligatoires
+
+id_commande
+
+laboratoire_id
+
+délégué_id
+
+pharmacie_id
+
+grossiste_id
+
+statut_actuel
+
+date_création
+
+date_envoi
+
+commentaire_délégué (optionnel)
+
+3.2 LigneCommande
+
+id_ligne
+
+commande_id
+
+produit_id
+
+quantité_commandée
+
+quantité_acceptée
+
+statut_ligne
+
+👉 Règle clé à dire au dev :
+
+“L’acceptation partielle se fait AU NIVEAU DES LIGNES, pas seulement de la commande.”
+
+🔄 4. Workflow des statuts (très important)
+4.1 Transitions autorisées
+Statut actuel	Acteur	Statut possible
+Brouillon	Délégué	Envoyée
+Envoyée	Grossiste	Acceptée / Refusée / Partiellement acceptée
+Acceptée	Grossiste	En préparation
+En préparation	Grossiste	Livrée
+Livrée	Pharmacie	Clôturée
+À tout moment	Pharmacie	Litige
+
+👉 À dire au dev :
+
+“Aucune transition hors de cette table n’est autorisée.”
+
+🕒 5. Historique & traçabilité (audit)
+5.1 HistoriqueCommande
+
+À CHAQUE changement de statut
+
+id
+
+commande_id
+
+ancien_statut
+
+nouveau_statut
+
+utilisateur_id
+
+rôle
+
+date_heure
+
+commentaire
+
+⚠️ Règle non négociable
+
+“L’historique est immuable (pas de suppression, pas d’édition).”
+
+🔔 6. Notifications
+6.1 Déclencheurs
+
+Création commande → grossiste
+
+Refus → délégué + laboratoire
+
+Livraison → pharmacie
+
+Litige → laboratoire
+
+6.2 Types
+
+Email
+
+Notification in-app (badge + historique)
+
+📊 7. Dashboards (niveau MVP)
+7.1 Laboratoire
+
+Total commandes
+
+Commandes par statut
+
+Délai moyen (Envoyée → Acceptée)
+
+Taux de refus par grossiste
+
+7.2 Grossiste
+
+Commandes à traiter
+
+Commandes en retard
+
+⚙️ 8. Exigences techniques NON NÉGOCIABLES
+
+👉 Dis-le clairement au développeur :
+
+Backend = API REST documentée (Swagger obligatoire)
+
+Frontend = SPA (React ou Vue)
+
+Base = PostgreSQL
+
+Logs des actions sensibles
+
+Temps de réponse < 2 secondes
+
+3️⃣ Ce que TU dois remplir / préciser pour lancer le dev
+
+Voici la checklist exacte à compléter avant développement 👇
+
+🔹 A. Règles métier à valider
+
+⬜ Un délégué peut-il modifier une commande après envoi ? (oui / non)
+
+⬜ Délai maximum de réponse d’un grossiste ?
+
+⬜ Litige bloque-t-il la clôture ? (oui / non)
+
+🔹 B. Gouvernance
+
+⬜ Qui crée les utilisateurs ?
+
+⬜ Un grossiste peut-il voir le nom du laboratoire concurrent ? (souvent NON)
+
+🔹 C. Priorités MVP
+
+⬜ Desktop only ou responsive ?
+
+⬜ Langue unique ou multi-langue ?
+
+4️⃣ Phrase finale à dire au prestataire (très important)
+
+Tu peux littéralement dire :
+
+“Ce cahier des charges est contractuel.
+Toute interprétation fonctionnelle doit être validée par écrit avant implémentation.
+L’objectif principal est la traçabilité, pas seulement la prise de commande.”
