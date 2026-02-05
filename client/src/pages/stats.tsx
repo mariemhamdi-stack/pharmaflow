@@ -21,7 +21,7 @@ export default function StatsPage() {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Statistiques</h1>
-        <p className="text-muted-foreground mt-1">Analyse des performances et indicateurs cl\u00e9s</p>
+        <p className="text-muted-foreground mt-1">Analyse des performances et indicateurs clés</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -33,17 +33,17 @@ export default function StatsPage() {
           isLoading={isLoading}
         />
         <StatCard
-          title="D\u00e9lai moyen"
+          title="Délai moyen"
           value={`${stats?.avgProcessingTime || 0}h`}
           icon={Clock}
-          description="De l'envoi \u00e0 l'acceptation"
+          description="De l'envoi à l'acceptation"
           isLoading={isLoading}
         />
         <StatCard
           title="Taux d'acceptation"
           value={`${100 - (stats?.refusalRate || 0)}%`}
           icon={CheckCircle2}
-          description="Commandes accept\u00e9es"
+          description="Commandes acceptées"
           isLoading={isLoading}
           trend="up"
         />
@@ -51,7 +51,7 @@ export default function StatsPage() {
           title="Taux de refus"
           value={`${stats?.refusalRate || 0}%`}
           icon={XCircle}
-          description="Commandes refus\u00e9es"
+          description="Commandes refusées"
           isLoading={isLoading}
           trend={stats?.refusalRate && stats.refusalRate > 10 ? "down" : "up"}
         />
@@ -62,9 +62,9 @@ export default function StatsPage() {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-primary" />
-              R\u00e9partition par statut
+              Répartition par statut
             </CardTitle>
-            <CardDescription>Distribution des commandes par \u00e9tat</CardDescription>
+            <CardDescription>Distribution des commandes par état</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -113,7 +113,7 @@ export default function StatsPage() {
               </div>
             ) : stats?.ordersByGrossiste?.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                Aucune donn\u00e9e disponible
+                Aucune donnée disponible
               </div>
             ) : (
               <div className="space-y-4">
@@ -141,7 +141,7 @@ export default function StatsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">\u00c9volution mensuelle</CardTitle>
+          <CardTitle className="text-lg">Évolution mensuelle</CardTitle>
           <CardDescription>Nombre de commandes par mois</CardDescription>
         </CardHeader>
         <CardContent>
@@ -149,7 +149,7 @@ export default function StatsPage() {
             <Skeleton className="h-48 w-full" />
           ) : stats?.ordersByMonth?.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              Aucune donn\u00e9e disponible
+              Aucune donnée disponible
             </div>
           ) : (
             <div className="flex items-end gap-2 h-48">

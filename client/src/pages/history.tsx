@@ -16,7 +16,7 @@ export default function HistoryPage() {
     const labels: Record<string, string> = {
       admin: "Administrateur",
       laboratoire: "Laboratoire",
-      delegue: "D\u00e9l\u00e9gu\u00e9",
+      delegue: "Délégué",
       grossiste: "Grossiste",
       pharmacie: "Pharmacie"
     };
@@ -27,7 +27,7 @@ export default function HistoryPage() {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Historique des actions</h1>
-        <p className="text-muted-foreground mt-1">Tra\u00e7abilit\u00e9 compl\u00e8te de toutes les modifications</p>
+        <p className="text-muted-foreground mt-1">Traçabilité complète de toutes les modifications</p>
       </div>
 
       <Card>
@@ -48,7 +48,7 @@ export default function HistoryPage() {
             <div className="text-center py-12">
               <HistoryIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground">Aucun historique</h3>
-              <p className="text-muted-foreground mt-1">L'historique des actions appara\u00eetra ici</p>
+              <p className="text-muted-foreground mt-1">L'historique des actions apparaîtra ici</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -74,7 +74,7 @@ export default function HistoryPage() {
                             <ArrowRight className="w-3 h-3 text-muted-foreground" />
                           </>
                         ) : (
-                          <span className="text-xs text-muted-foreground">Cr\u00e9ation</span>
+                          <span className="text-xs text-muted-foreground">Création</span>
                         )}
                         <StatusBadge status={entry.nouveauStatus} type="order" />
                       </div>
@@ -89,7 +89,7 @@ export default function HistoryPage() {
                       </span>
                       <span>\u2022</span>
                       <span>
-                        {format(new Date(entry.createdAt), "dd MMM yyyy '\u00e0' HH:mm", { locale: fr })}
+                        {format(new Date(entry.createdAt), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
                       </span>
                     </div>
 

@@ -74,10 +74,10 @@ export default function OrdersPage() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Commandes</h1>
           <p className="text-muted-foreground mt-1">
-            {user?.role === "delegue" ? "G\u00e9rez vos commandes" : 
+            {user?.role === "delegue" ? "Gérez vos commandes" : 
              user?.role === "grossiste" ? "Traitez les commandes" :
              user?.role === "pharmacie" ? "Suivez vos commandes" :
-             "Toutes les commandes du syst\u00e8me"}
+             "Toutes les commandes du système"}
           </p>
         </div>
         {canCreateOrder && (
@@ -125,13 +125,13 @@ export default function OrdersPage() {
                 <SelectContent>
                   <SelectItem value="all">Tous les statuts</SelectItem>
                   <SelectItem value="brouillon">Brouillon</SelectItem>
-                  <SelectItem value="envoyee">Envoy\u00e9e</SelectItem>
-                  <SelectItem value="acceptee">Accept\u00e9e</SelectItem>
-                  <SelectItem value="refusee">Refus\u00e9e</SelectItem>
-                  <SelectItem value="partiellement_acceptee">Partiellement accept\u00e9e</SelectItem>
-                  <SelectItem value="en_preparation">En pr\u00e9paration</SelectItem>
-                  <SelectItem value="livree">Livr\u00e9e</SelectItem>
-                  <SelectItem value="cloturee">Cl\u00f4tur\u00e9e</SelectItem>
+                  <SelectItem value="envoyee">Envoyée</SelectItem>
+                  <SelectItem value="acceptee">Acceptée</SelectItem>
+                  <SelectItem value="refusee">Refusée</SelectItem>
+                  <SelectItem value="partiellement_acceptee">Partiellement acceptée</SelectItem>
+                  <SelectItem value="en_preparation">En préparation</SelectItem>
+                  <SelectItem value="livree">Livrée</SelectItem>
+                  <SelectItem value="cloturee">Clôturée</SelectItem>
                   <SelectItem value="litige">Litige</SelectItem>
                 </SelectContent>
               </Select>
@@ -151,8 +151,8 @@ export default function OrdersPage() {
               <h3 className="text-lg font-medium text-foreground">Aucune commande</h3>
               <p className="text-muted-foreground mt-1">
                 {search || statusFilter !== "all" 
-                  ? "Aucune commande ne correspond \u00e0 vos crit\u00e8res" 
-                  : "Commencez par cr\u00e9er une nouvelle commande"}
+                  ? "Aucune commande ne correspond à vos critères" 
+                  : "Commencez par créer une nouvelle commande"}
               </p>
             </div>
           ) : (
@@ -160,7 +160,7 @@ export default function OrdersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>R\u00e9f\u00e9rence</TableHead>
+                    <TableHead>Référence</TableHead>
                     <TableHead>Pharmacie</TableHead>
                     <TableHead>Grossiste</TableHead>
                     <TableHead>Statut</TableHead>
@@ -247,11 +247,11 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
       return res;
     },
     onSuccess: () => {
-      toast({ title: "Commande cr\u00e9\u00e9e", description: "La commande a \u00e9t\u00e9 cr\u00e9\u00e9e avec succ\u00e8s" });
+      toast({ title: "Commande créée", description: "La commande a été créée avec succès" });
       onSuccess();
     },
     onError: () => {
-      toast({ title: "Erreur", description: "Impossible de cr\u00e9er la commande", variant: "destructive" });
+      toast({ title: "Erreur", description: "Impossible de créer la commande", variant: "destructive" });
     }
   });
 
@@ -293,7 +293,7 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
       <DialogHeader>
         <DialogTitle>Nouvelle commande</DialogTitle>
         <DialogDescription>
-          Cr\u00e9ez une nouvelle commande pour une pharmacie
+          Créez une nouvelle commande pour une pharmacie
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -302,7 +302,7 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
             <label className="text-sm font-medium">Pharmacie</label>
             <Select value={pharmacieId} onValueChange={setPharmacieId}>
               <SelectTrigger data-testid="select-pharmacie">
-                <SelectValue placeholder="S\u00e9lectionner..." />
+                <SelectValue placeholder="Sélectionner..." />
               </SelectTrigger>
               <SelectContent>
                 {pharmacies.map((p) => (
@@ -315,7 +315,7 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
             <label className="text-sm font-medium">Grossiste</label>
             <Select value={grossisteId} onValueChange={setGrossisteId}>
               <SelectTrigger data-testid="select-grossiste">
-                <SelectValue placeholder="S\u00e9lectionner..." />
+                <SelectValue placeholder="Sélectionner..." />
               </SelectTrigger>
               <SelectContent>
                 {grossistes.map((g) => (
@@ -379,14 +379,14 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
           <Textarea
             value={commentaire}
             onChange={(e) => setCommentaire(e.target.value)}
-            placeholder="Instructions sp\u00e9ciales..."
+            placeholder="Instructions spéciales..."
             data-testid="textarea-commentaire"
           />
         </div>
 
         <DialogFooter>
           <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-order">
-            {createMutation.isPending ? "Cr\u00e9ation..." : "Cr\u00e9er la commande"}
+            {createMutation.isPending ? "Création..." : "Créer la commande"}
           </Button>
         </DialogFooter>
       </form>
@@ -407,11 +407,11 @@ function OrderActions({ order, userRole }: OrderActionsProps) {
       return apiRequest("PATCH", `/api/orders/${order.id}/status`, { status, commentaire });
     },
     onSuccess: () => {
-      toast({ title: "Statut mis \u00e0 jour" });
+      toast({ title: "Statut mis à jour" });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
     },
     onError: () => {
-      toast({ title: "Erreur", description: "Impossible de mettre \u00e0 jour le statut", variant: "destructive" });
+      toast({ title: "Erreur", description: "Impossible de mettre à jour le statut", variant: "destructive" });
     }
   });
 
@@ -467,7 +467,7 @@ function OrderActions({ order, userRole }: OrderActionsProps) {
         data-testid={`button-prepare-order-${order.id}`}
       >
         <Package className="w-4 h-4 mr-1" />
-        Pr\u00e9parer
+        Préparer
       </Button>
     );
   }
@@ -549,7 +549,7 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
           <StatusBadge status={order.status} type="order" />
         </DialogTitle>
         <DialogDescription>
-          Cr\u00e9\u00e9e le {format(new Date(order.createdAt), "dd MMMM yyyy '\u00e0' HH:mm", { locale: fr })}
+          Créée le {format(new Date(order.createdAt), "dd MMMM yyyy 'à' HH:mm", { locale: fr })}
         </DialogDescription>
       </DialogHeader>
 
@@ -595,8 +595,8 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Produit</TableHead>
-                  <TableHead className="text-right">Qt\u00e9 command\u00e9e</TableHead>
-                  <TableHead className="text-right">Qt\u00e9 accept\u00e9e</TableHead>
+                  <TableHead className="text-right">Qté commandée</TableHead>
+                  <TableHead className="text-right">Qté acceptée</TableHead>
                   <TableHead>Statut</TableHead>
                 </TableRow>
               </TableHeader>
@@ -635,8 +635,8 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
                     <div className="w-2 h-2 rounded-full bg-primary mt-2" />
                     <div className="flex-1">
                       <p>
-                        <span className="font-medium">{h.ancienStatus || "Cr\u00e9ation"}</span>
-                        {" \u2192 "}
+                        <span className="font-medium">{h.ancienStatus || "Création"}</span>
+                        {" → "}
                         <span className="font-medium">{h.nouveauStatus}</span>
                       </p>
                       <p className="text-muted-foreground">

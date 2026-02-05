@@ -32,7 +32,7 @@ export default function LoginPage() {
     setIsLoading(false);
 
     if (success) {
-      toast({ title: "Connexion r\u00e9ussie", description: "Bienvenue sur PharmaFlow" });
+      toast({ title: "Connexion réussie", description: "Bienvenue sur PharmaFlow" });
       setLocation("/");
     } else {
       toast({ 
@@ -62,7 +62,7 @@ export default function LoginPage() {
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">Connexion</CardTitle>
             <CardDescription className="text-center">
-              Entrez vos identifiants pour acc\u00e9der \u00e0 votre espace
+              Entrez vos identifiants pour accéder à votre espace
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -138,7 +138,7 @@ export default function LoginPage() {
               </p>
               <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                 <p><span className="font-medium">Admin:</span> admin@pharmaflow.com / admin123</p>
-                <p><span className="font-medium">D\u00e9l\u00e9gu\u00e9:</span> delegue@pharmaflow.com / delegue123</p>
+                <p><span className="font-medium">Délégué:</span> delegue@pharmaflow.com / delegue123</p>
                 <p><span className="font-medium">Grossiste:</span> grossiste@pharmaflow.com / grossiste123</p>
               </div>
             </div>

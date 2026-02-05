@@ -49,7 +49,7 @@ export default function ProductsPage() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Catalogue produits</h1>
           <p className="text-muted-foreground mt-1">
-            {canManageProducts ? "G\u00e9rez le catalogue de produits" : "Consultez les produits disponibles"}
+            {canManageProducts ? "Gérez le catalogue de produits" : "Consultez les produits disponibles"}
           </p>
         </div>
         {canManageProducts && (
@@ -98,7 +98,7 @@ export default function ProductsPage() {
               <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground">Aucun produit</h3>
               <p className="text-muted-foreground mt-1">
-                {search ? "Aucun produit ne correspond \u00e0 votre recherche" : "Commencez par ajouter des produits"}
+                {search ? "Aucun produit ne correspond à votre recherche" : "Commencez par ajouter des produits"}
               </p>
             </div>
           ) : (
@@ -197,8 +197,8 @@ function ProductForm({ product, laboratoires, onSuccess }: ProductFormProps) {
     },
     onSuccess: () => {
       toast({ 
-        title: product ? "Produit modifi\u00e9" : "Produit cr\u00e9\u00e9",
-        description: product ? "Le produit a \u00e9t\u00e9 mis \u00e0 jour" : "Le produit a \u00e9t\u00e9 ajout\u00e9 au catalogue"
+        title: product ? "Produit modifié" : "Produit créé",
+        description: product ? "Le produit a été mis à jour" : "Le produit a été ajouté au catalogue"
       });
       onSuccess();
     },
@@ -252,7 +252,7 @@ function ProductForm({ product, laboratoires, onSuccess }: ProductFormProps) {
             <Input
               value={forme}
               onChange={(e) => setForme(e.target.value)}
-              placeholder="Comprim\u00e9, Sirop..."
+              placeholder="Comprimé, Sirop..."
               data-testid="input-product-forme"
             />
           </div>
@@ -272,7 +272,7 @@ function ProductForm({ product, laboratoires, onSuccess }: ProductFormProps) {
             <label className="text-sm font-medium">Laboratoire *</label>
             <Select value={laboratoireId} onValueChange={setLaboratoireId}>
               <SelectTrigger data-testid="select-product-laboratoire">
-                <SelectValue placeholder="S\u00e9lectionner..." />
+                <SelectValue placeholder="Sélectionner..." />
               </SelectTrigger>
               <SelectContent>
                 {laboratoires.map((l) => (
@@ -298,7 +298,7 @@ function ProductForm({ product, laboratoires, onSuccess }: ProductFormProps) {
 
         <DialogFooter>
           <Button type="submit" disabled={mutation.isPending} data-testid="button-submit-product">
-            {mutation.isPending ? "Enregistrement..." : (product ? "Modifier" : "Cr\u00e9er")}
+            {mutation.isPending ? "Enregistrement..." : (product ? "Modifier" : "Créer")}
           </Button>
         </DialogFooter>
       </form>

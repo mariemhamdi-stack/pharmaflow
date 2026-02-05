@@ -40,7 +40,7 @@ export function AppSidebar() {
       return [
         ...baseItems,
         { title: "Utilisateurs", url: "/users", icon: Users },
-        { title: "Entit\u00e9s", url: "/entities", icon: Building2 },
+        { title: "Entités", url: "/entities", icon: Building2 },
         { title: "Produits", url: "/products", icon: Package },
         { title: "Commandes", url: "/orders", icon: ShoppingCart },
         { title: "Historique", url: "/history", icon: History },
@@ -68,7 +68,7 @@ export function AppSidebar() {
     if (user?.role === "grossiste") {
       return [
         ...baseItems,
-        { title: "Commandes \u00e0 traiter", url: "/orders", icon: ShoppingCart }
+        { title: "Commandes à traiter", url: "/orders", icon: ShoppingCart }
       ];
     }
 
@@ -88,7 +88,7 @@ export function AppSidebar() {
     const labels: Record<string, string> = {
       admin: "Administrateur",
       laboratoire: "Laboratoire",
-      delegue: "D\u00e9l\u00e9gu\u00e9",
+      delegue: "Délégué",
       grossiste: "Grossiste",
       pharmacie: "Pharmacie"
     };
@@ -183,7 +183,7 @@ export function AppSidebar() {
           data-testid="button-logout"
         >
           <LogOut className="w-4 h-4 mr-2" />
-          D\u00e9connexion
+          Déconnexion
         </Button>
       </SidebarFooter>
     </Sidebar>

@@ -44,7 +44,7 @@ export default function UsersPage() {
     const labels: Record<string, string> = {
       admin: "Administrateur",
       laboratoire: "Laboratoire",
-      delegue: "D\u00e9l\u00e9gu\u00e9",
+      delegue: "Délégué",
       grossiste: "Grossiste",
       pharmacie: "Pharmacie"
     };
@@ -61,7 +61,7 @@ export default function UsersPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Utilisateurs</h1>
-          <p className="text-muted-foreground mt-1">G\u00e9rez les utilisateurs du syst\u00e8me</p>
+          <p className="text-muted-foreground mt-1">Gérez les utilisateurs du système</p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
@@ -97,13 +97,13 @@ export default function UsersPage() {
             </div>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
               <SelectTrigger className="w-48" data-testid="select-role-filter">
-                <SelectValue placeholder="Filtrer par r\u00f4le" />
+                <SelectValue placeholder="Filtrer par rôle" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les r\u00f4les</SelectItem>
+                <SelectItem value="all">Tous les rôles</SelectItem>
                 <SelectItem value="admin">Administrateur</SelectItem>
                 <SelectItem value="laboratoire">Laboratoire</SelectItem>
-                <SelectItem value="delegue">D\u00e9l\u00e9gu\u00e9</SelectItem>
+                <SelectItem value="delegue">Délégué</SelectItem>
                 <SelectItem value="grossiste">Grossiste</SelectItem>
                 <SelectItem value="pharmacie">Pharmacie</SelectItem>
               </SelectContent>
@@ -123,7 +123,7 @@ export default function UsersPage() {
               <h3 className="text-lg font-medium text-foreground">Aucun utilisateur</h3>
               <p className="text-muted-foreground mt-1">
                 {search || roleFilter !== "all" 
-                  ? "Aucun utilisateur ne correspond \u00e0 vos crit\u00e8res" 
+                  ? "Aucun utilisateur ne correspond à vos critères" 
                   : "Commencez par ajouter des utilisateurs"}
               </p>
             </div>
@@ -134,8 +134,8 @@ export default function UsersPage() {
                   <TableRow>
                     <TableHead>Utilisateur</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>R\u00f4le</TableHead>
-                    <TableHead>Entit\u00e9</TableHead>
+                    <TableHead>Rôle</TableHead>
+                    <TableHead>Entité</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -229,8 +229,8 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
     },
     onSuccess: () => {
       toast({ 
-        title: user ? "Utilisateur modifi\u00e9" : "Utilisateur cr\u00e9\u00e9",
-        description: user ? "L'utilisateur a \u00e9t\u00e9 mis \u00e0 jour" : "L'utilisateur a \u00e9t\u00e9 cr\u00e9\u00e9"
+        title: user ? "Utilisateur modifié" : "Utilisateur créé",
+        description: user ? "L'utilisateur a été mis à jour" : "L'utilisateur a été créé"
       });
       onSuccess();
     },
@@ -270,13 +270,13 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
       <DialogHeader>
         <DialogTitle>{user ? "Modifier l'utilisateur" : "Nouvel utilisateur"}</DialogTitle>
         <DialogDescription>
-          {user ? "Modifiez les informations de l'utilisateur" : "Cr\u00e9ez un nouveau compte utilisateur"}
+          {user ? "Modifiez les informations de l'utilisateur" : "Créez un nouveau compte utilisateur"}
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Pr\u00e9nom *</label>
+            <label className="text-sm font-medium">Prénom *</label>
             <Input
               value={prenom}
               onChange={(e) => setPrenom(e.target.value)}
@@ -307,7 +307,7 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">T\u00e9l\u00e9phone</label>
+          <label className="text-sm font-medium">Téléphone</label>
           <Input
             value={telephone}
             onChange={(e) => setTelephone(e.target.value)}
@@ -331,7 +331,7 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">R\u00f4le *</label>
+            <label className="text-sm font-medium">Rôle *</label>
             <Select value={role} onValueChange={(v) => { setRole(v); setEntityId(""); }}>
               <SelectTrigger data-testid="select-user-role">
                 <SelectValue />
@@ -339,7 +339,7 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
               <SelectContent>
                 <SelectItem value="admin">Administrateur</SelectItem>
                 <SelectItem value="laboratoire">Laboratoire</SelectItem>
-                <SelectItem value="delegue">D\u00e9l\u00e9gu\u00e9</SelectItem>
+                <SelectItem value="delegue">Délégué</SelectItem>
                 <SelectItem value="grossiste">Grossiste</SelectItem>
                 <SelectItem value="pharmacie">Pharmacie</SelectItem>
               </SelectContent>
@@ -361,10 +361,10 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
 
         {role !== "admin" && filteredEntities.length > 0 && (
           <div className="space-y-2">
-            <label className="text-sm font-medium">Entit\u00e9 associ\u00e9e</label>
+            <label className="text-sm font-medium">Entité associée</label>
             <Select value={entityId} onValueChange={setEntityId}>
               <SelectTrigger data-testid="select-user-entity">
-                <SelectValue placeholder="S\u00e9lectionner une entit\u00e9..." />
+                <SelectValue placeholder="Sélectionner une entité..." />
               </SelectTrigger>
               <SelectContent>
                 {filteredEntities.map((e) => (
@@ -377,7 +377,7 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
 
         <DialogFooter>
           <Button type="submit" disabled={mutation.isPending} data-testid="button-submit-user">
-            {mutation.isPending ? "Enregistrement..." : (user ? "Modifier" : "Cr\u00e9er")}
+            {mutation.isPending ? "Enregistrement..." : (user ? "Modifier" : "Créer")}
           </Button>
         </DialogFooter>
       </form>

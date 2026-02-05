@@ -70,14 +70,14 @@ export default function EntitiesPage() {
     <div className="p-6 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Entit\u00e9s</h1>
-          <p className="text-muted-foreground mt-1">G\u00e9rez les laboratoires, grossistes et pharmacies</p>
+          <h1 className="text-3xl font-bold text-foreground">Entités</h1>
+          <p className="text-muted-foreground mt-1">Gérez les laboratoires, grossistes et pharmacies</p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button data-testid="button-create-entity">
               <Plus className="w-4 h-4 mr-2" />
-              Nouvelle entit\u00e9
+              Nouvelle entité
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -97,7 +97,7 @@ export default function EntitiesPage() {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher une entit\u00e9..."
+                placeholder="Rechercher une entité..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
@@ -127,11 +127,11 @@ export default function EntitiesPage() {
           ) : filteredEntities?.length === 0 ? (
             <div className="text-center py-12">
               <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground">Aucune entit\u00e9</h3>
+              <h3 className="text-lg font-medium text-foreground">Aucune entité</h3>
               <p className="text-muted-foreground mt-1">
                 {search || typeFilter !== "all" 
-                  ? "Aucune entit\u00e9 ne correspond \u00e0 vos crit\u00e8res" 
-                  : "Commencez par ajouter des entit\u00e9s"}
+                  ? "Aucune entité ne correspond à vos critères" 
+                  : "Commencez par ajouter des entités"}
               </p>
             </div>
           ) : (
@@ -142,7 +142,7 @@ export default function EntitiesPage() {
                     <TableHead>Nom</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>T\u00e9l\u00e9phone</TableHead>
+                    <TableHead>Téléphone</TableHead>
                     <TableHead>Adresse</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -224,8 +224,8 @@ function EntityForm({ entity, onSuccess }: EntityFormProps) {
     },
     onSuccess: () => {
       toast({ 
-        title: entity ? "Entit\u00e9 modifi\u00e9e" : "Entit\u00e9 cr\u00e9\u00e9e",
-        description: entity ? "L'entit\u00e9 a \u00e9t\u00e9 mise \u00e0 jour" : "L'entit\u00e9 a \u00e9t\u00e9 cr\u00e9\u00e9e"
+        title: entity ? "Entité modifiée" : "Entité créée",
+        description: entity ? "L'entité a été mise à jour" : "L'entité a été créée"
       });
       onSuccess();
     },
@@ -246,9 +246,9 @@ function EntityForm({ entity, onSuccess }: EntityFormProps) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{entity ? "Modifier l'entit\u00e9" : "Nouvelle entit\u00e9"}</DialogTitle>
+        <DialogTitle>{entity ? "Modifier l'entité" : "Nouvelle entité"}</DialogTitle>
         <DialogDescription>
-          {entity ? "Modifiez les informations de l'entit\u00e9" : "Cr\u00e9ez un nouveau laboratoire, grossiste ou pharmacie"}
+          {entity ? "Modifiez les informations de l'entité" : "Créez un nouveau laboratoire, grossiste ou pharmacie"}
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -257,7 +257,7 @@ function EntityForm({ entity, onSuccess }: EntityFormProps) {
           <Input
             value={nom}
             onChange={(e) => setNom(e.target.value)}
-            placeholder="Nom de l'entit\u00e9"
+            placeholder="Nom de l'entité"
             data-testid="input-entity-nom"
           />
         </div>
@@ -288,7 +288,7 @@ function EntityForm({ entity, onSuccess }: EntityFormProps) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">T\u00e9l\u00e9phone</label>
+          <label className="text-sm font-medium">Téléphone</label>
           <Input
             value={telephone}
             onChange={(e) => setTelephone(e.target.value)}
@@ -309,7 +309,7 @@ function EntityForm({ entity, onSuccess }: EntityFormProps) {
 
         <DialogFooter>
           <Button type="submit" disabled={mutation.isPending} data-testid="button-submit-entity">
-            {mutation.isPending ? "Enregistrement..." : (entity ? "Modifier" : "Cr\u00e9er")}
+            {mutation.isPending ? "Enregistrement..." : (entity ? "Modifier" : "Créer")}
           </Button>
         </DialogFooter>
       </form>
