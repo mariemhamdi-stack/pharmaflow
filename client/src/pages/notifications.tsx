@@ -52,7 +52,7 @@ export default function NotificationsPage() {
             data-testid="button-mark-all-read"
           >
             <CheckCheck className="w-4 h-4 mr-2" />
-            Tout marquer comme lu
+            Toutes marquer comme lues
           </Button>
         )}
       </div>
