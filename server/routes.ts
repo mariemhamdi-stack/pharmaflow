@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { loginSchema, insertUserSchema, insertEntitySchema, insertProductSchema, insertOrderSchema, insertOrderLineSchema, statusTransitions } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { z } from "zod";
+import { sendOrderStatusEmail } from "./email";
 
 declare module "express-session" {
   interface SessionData {
@@ -135,7 +136,7 @@ export async function registerRoutes(
 
   app.patch("/api/users/:id", requireRole("admin"), async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const user = await storage.updateUser(id, req.body);
       if (!user) {
         return res.status(404).json({ error: "Utilisateur non trouv\u00e9" });
@@ -168,7 +169,7 @@ export async function registerRoutes(
 
   app.patch("/api/entities/:id", requireRole("admin"), async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const entity = await storage.updateEntity(id, req.body);
       if (!entity) {
         return res.status(404).json({ error: "Entit\u00e9 non trouv\u00e9e" });
@@ -215,7 +216,7 @@ export async function registerRoutes(
 
   app.patch("/api/products/:id", requireRole("admin", "laboratoire"), async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const user = (req as any).user;
       
       const existing = await storage.getProduct(id);
@@ -267,7 +268,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/orders/:id", requireAuth, async (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const user = await storage.getUser(req.session.userId!);
     
     if (!user) {
@@ -300,7 +301,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/orders/:id/history", requireAuth, async (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const user = await storage.getUser(req.session.userId!);
     
     if (!user) {
@@ -403,7 +404,7 @@ export async function registerRoutes(
 
   app.patch("/api/orders/:id/status", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { status, commentaire } = req.body;
       const user = await storage.getUser(req.session.userId!);
       
@@ -444,7 +445,20 @@ export async function registerRoutes(
       
       const updated = await storage.updateOrderStatus(id, status, user.id, user.role, commentaire);
       
-      // Create notification
+      // Get entity names for emails
+      const entities = await storage.getEntities();
+      const pharmacieEntity = entities.find(e => e.id === order.pharmacieId);
+      const grossisteEntity = entities.find(e => e.id === order.grossisteId);
+      
+      const emailOrderData = {
+        orderId: id,
+        pharmacieName: pharmacieEntity?.nom || 'Pharmacie',
+        grossisteName: grossisteEntity?.nom || 'Grossiste',
+        status,
+        commentaire
+      };
+      
+      // Create notification and send emails
       if (status === "envoyee") {
         // Notify grossiste
         const grossisteUsers = await storage.getUsers();
@@ -455,20 +469,43 @@ export async function registerRoutes(
             orderId: id,
             type: "in_app",
             titre: "Nouvelle commande",
-            message: `Une nouvelle commande a \u00e9t\u00e9 envoy\u00e9e par ${user.prenom} ${user.nom}`
+            message: `Une nouvelle commande a été envoyée par ${user.prenom} ${user.nom}`
           });
+          // Send email to grossiste
+          if (gu.email) {
+            await sendOrderStatusEmail(gu.email, `${gu.prenom} ${gu.nom}`, 'grossiste', emailOrderData);
+          }
         }
-      } else if (status === "refusee") {
-        // Notify delegue and labo
+      } else if (status === "acceptee" || status === "partiellement_acceptee") {
+        // Notify and email delegue
+        const delegue = await storage.getUser(order.delegueId);
         await storage.createNotification({
           userId: order.delegueId,
           orderId: id,
           type: "in_app",
-          titre: "Commande refus\u00e9e",
-          message: `Votre commande a \u00e9t\u00e9 refus\u00e9e par le grossiste`
+          titre: status === "acceptee" ? "Commande acceptée" : "Commande partiellement acceptée",
+          message: `Votre commande a été ${status === "acceptee" ? "acceptée" : "partiellement acceptée"} par le grossiste`
         });
+        // Send email to delegue
+        if (delegue?.email) {
+          await sendOrderStatusEmail(delegue.email, `${delegue.prenom} ${delegue.nom}`, 'delegue', emailOrderData);
+        }
+      } else if (status === "refusee") {
+        // Notify and email delegue
+        const delegue = await storage.getUser(order.delegueId);
+        await storage.createNotification({
+          userId: order.delegueId,
+          orderId: id,
+          type: "in_app",
+          titre: "Commande refusée",
+          message: `Votre commande a été refusée par le grossiste`
+        });
+        // Send email to delegue
+        if (delegue?.email) {
+          await sendOrderStatusEmail(delegue.email, `${delegue.prenom} ${delegue.nom}`, 'delegue', emailOrderData);
+        }
       } else if (status === "livree") {
-        // Notify pharmacie
+        // Notify and email pharmacie
         const pharmacieUsers = await storage.getUsers();
         const pharmacieUsersFiltered = pharmacieUsers.filter(u => u.role === "pharmacie" && u.entityId === order.pharmacieId);
         for (const pu of pharmacieUsersFiltered) {
@@ -476,9 +513,13 @@ export async function registerRoutes(
             userId: pu.id,
             orderId: id,
             type: "in_app",
-            titre: "Commande livr\u00e9e",
-            message: `Votre commande a \u00e9t\u00e9 livr\u00e9e`
+            titre: "Commande livrée",
+            message: `Votre commande a été livrée`
           });
+          // Send email to pharmacie
+          if (pu.email) {
+            await sendOrderStatusEmail(pu.email, `${pu.prenom} ${pu.nom}`, 'pharmacie', emailOrderData);
+          }
         }
       } else if (status === "litige") {
         // Notify laboratoire
@@ -492,7 +533,7 @@ export async function registerRoutes(
             orderId: id,
             type: "in_app",
             titre: "Litige ouvert",
-            message: `Un litige a \u00e9t\u00e9 ouvert sur une commande`
+            message: `Un litige a été ouvert sur une commande`
           });
         }
       }
@@ -523,7 +564,7 @@ export async function registerRoutes(
   });
 
   app.patch("/api/notifications/:id/read", requireAuth, async (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     await storage.markNotificationAsRead(id);
     res.json({ success: true });
   });
