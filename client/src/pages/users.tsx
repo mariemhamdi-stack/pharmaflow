@@ -1,0 +1,386 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { User, Entity } from "@shared/schema";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { StatusBadge } from "@/components/status-badge";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Search, Edit, Users as UsersIcon } from "lucide-react";
+
+export default function UsersPage() {
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  const { data: users, isLoading } = useQuery<User[]>({
+    queryKey: ["/api/users"]
+  });
+
+  const { data: entities } = useQuery<Entity[]>({
+    queryKey: ["/api/entities"]
+  });
+
+  const filteredUsers = users?.filter(user => {
+    const matchesSearch = 
+      user.nom.toLowerCase().includes(search.toLowerCase()) ||
+      user.prenom.toLowerCase().includes(search.toLowerCase()) ||
+      user.email.toLowerCase().includes(search.toLowerCase());
+    
+    const matchesRole = roleFilter === "all" || user.role === roleFilter;
+    
+    return matchesSearch && matchesRole;
+  });
+
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      admin: "Administrateur",
+      laboratoire: "Laboratoire",
+      delegue: "D\u00e9l\u00e9gu\u00e9",
+      grossiste: "Grossiste",
+      pharmacie: "Pharmacie"
+    };
+    return labels[role] || role;
+  };
+
+  const getEntityName = (entityId: string | null) => {
+    if (!entityId) return "-";
+    return entities?.find(e => e.id === entityId)?.nom || "-";
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Utilisateurs</h1>
+          <p className="text-muted-foreground mt-1">G\u00e9rez les utilisateurs du syst\u00e8me</p>
+        </div>
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-create-user">
+              <Plus className="w-4 h-4 mr-2" />
+              Nouvel utilisateur
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <UserForm 
+              entities={entities || []}
+              onSuccess={() => {
+                setIsCreateOpen(false);
+                queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher un utilisateur..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+                data-testid="input-search-users"
+              />
+            </div>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-48" data-testid="select-role-filter">
+                <SelectValue placeholder="Filtrer par r\u00f4le" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les r\u00f4les</SelectItem>
+                <SelectItem value="admin">Administrateur</SelectItem>
+                <SelectItem value="laboratoire">Laboratoire</SelectItem>
+                <SelectItem value="delegue">D\u00e9l\u00e9gu\u00e9</SelectItem>
+                <SelectItem value="grossiste">Grossiste</SelectItem>
+                <SelectItem value="pharmacie">Pharmacie</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : filteredUsers?.length === 0 ? (
+            <div className="text-center py-12">
+              <UsersIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground">Aucun utilisateur</h3>
+              <p className="text-muted-foreground mt-1">
+                {search || roleFilter !== "all" 
+                  ? "Aucun utilisateur ne correspond \u00e0 vos crit\u00e8res" 
+                  : "Commencez par ajouter des utilisateurs"}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Utilisateur</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>R\u00f4le</TableHead>
+                    <TableHead>Entit\u00e9</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers?.map((user) => (
+                    <TableRow key={user.id} className="hover-elevate">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                              {user.prenom[0]}{user.nom[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{user.prenom} {user.nom}</p>
+                            <p className="text-xs text-muted-foreground">{user.telephone || "-"}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-primary/10 text-primary">
+                          {getRoleLabel(user.role)}
+                        </span>
+                      </TableCell>
+                      <TableCell>{getEntityName(user.entityId)}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={user.status} type="user" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setEditingUser(user)}
+                          data-testid={`button-edit-user-${user.id}`}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
+        <DialogContent>
+          {editingUser && (
+            <UserForm 
+              user={editingUser}
+              entities={entities || []}
+              onSuccess={() => {
+                setEditingUser(null);
+                queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+interface UserFormProps {
+  user?: User;
+  entities: Entity[];
+  onSuccess: () => void;
+}
+
+function UserForm({ user, entities, onSuccess }: UserFormProps) {
+  const { toast } = useToast();
+  const [nom, setNom] = useState(user?.nom || "");
+  const [prenom, setPrenom] = useState(user?.prenom || "");
+  const [email, setEmail] = useState(user?.email || "");
+  const [telephone, setTelephone] = useState(user?.telephone || "");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState(user?.role || "delegue");
+  const [entityId, setEntityId] = useState(user?.entityId || "");
+  const [status, setStatus] = useState(user?.status || "actif");
+
+  const mutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (user) {
+        return apiRequest("PATCH", `/api/users/${user.id}`, data);
+      }
+      return apiRequest("POST", "/api/users", data);
+    },
+    onSuccess: () => {
+      toast({ 
+        title: user ? "Utilisateur modifi\u00e9" : "Utilisateur cr\u00e9\u00e9",
+        description: user ? "L'utilisateur a \u00e9t\u00e9 mis \u00e0 jour" : "L'utilisateur a \u00e9t\u00e9 cr\u00e9\u00e9"
+      });
+      onSuccess();
+    },
+    onError: () => {
+      toast({ title: "Erreur", description: "Une erreur s'est produite", variant: "destructive" });
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nom || !prenom || !email || (!user && !password)) {
+      toast({ title: "Erreur", description: "Veuillez remplir les champs obligatoires", variant: "destructive" });
+      return;
+    }
+    const data: any = { nom, prenom, email, telephone, role, entityId: entityId || null, status };
+    if (password) data.password = password;
+    mutation.mutate(data);
+  };
+
+  const getEntitiesForRole = () => {
+    if (role === "laboratoire" || role === "delegue") {
+      return entities.filter(e => e.type === "laboratoire");
+    }
+    if (role === "grossiste") {
+      return entities.filter(e => e.type === "grossiste");
+    }
+    if (role === "pharmacie") {
+      return entities.filter(e => e.type === "pharmacie");
+    }
+    return [];
+  };
+
+  const filteredEntities = getEntitiesForRole();
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>{user ? "Modifier l'utilisateur" : "Nouvel utilisateur"}</DialogTitle>
+        <DialogDescription>
+          {user ? "Modifiez les informations de l'utilisateur" : "Cr\u00e9ez un nouveau compte utilisateur"}
+        </DialogDescription>
+      </DialogHeader>
+      <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Pr\u00e9nom *</label>
+            <Input
+              value={prenom}
+              onChange={(e) => setPrenom(e.target.value)}
+              placeholder="Jean"
+              data-testid="input-user-prenom"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Nom *</label>
+            <Input
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+              placeholder="Dupont"
+              data-testid="input-user-nom"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Email *</label>
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="jean.dupont@email.com"
+            data-testid="input-user-email"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">T\u00e9l\u00e9phone</label>
+          <Input
+            value={telephone}
+            onChange={(e) => setTelephone(e.target.value)}
+            placeholder="+33 6 12 34 56 78"
+            data-testid="input-user-telephone"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">
+            Mot de passe {user ? "(laisser vide pour ne pas modifier)" : "*"}
+          </label>
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+            data-testid="input-user-password"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">R\u00f4le *</label>
+            <Select value={role} onValueChange={(v) => { setRole(v); setEntityId(""); }}>
+              <SelectTrigger data-testid="select-user-role">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Administrateur</SelectItem>
+                <SelectItem value="laboratoire">Laboratoire</SelectItem>
+                <SelectItem value="delegue">D\u00e9l\u00e9gu\u00e9</SelectItem>
+                <SelectItem value="grossiste">Grossiste</SelectItem>
+                <SelectItem value="pharmacie">Pharmacie</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Statut</label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger data-testid="select-user-status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="actif">Actif</SelectItem>
+                <SelectItem value="suspendu">Suspendu</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {role !== "admin" && filteredEntities.length > 0 && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Entit\u00e9 associ\u00e9e</label>
+            <Select value={entityId} onValueChange={setEntityId}>
+              <SelectTrigger data-testid="select-user-entity">
+                <SelectValue placeholder="S\u00e9lectionner une entit\u00e9..." />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredEntities.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>{e.nom}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button type="submit" disabled={mutation.isPending} data-testid="button-submit-user">
+            {mutation.isPending ? "Enregistrement..." : (user ? "Modifier" : "Cr\u00e9er")}
+          </Button>
+        </DialogFooter>
+      </form>
+    </>
+  );
+}

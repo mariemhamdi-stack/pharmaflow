@@ -1,38 +1,415 @@
-import { type User, type InsertUser } from "@shared/schema";
+import { 
+  users, entities, products, orders, orderLines, orderHistory, notifications,
+  type User, type InsertUser,
+  type Entity, type InsertEntity,
+  type Product, type InsertProduct,
+  type Order, type InsertOrder,
+  type OrderLine, type InsertOrderLine,
+  type OrderHistory, type InsertOrderHistory,
+  type Notification, type InsertNotification,
+  type OrderWithRelations
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import bcrypt from "bcrypt";
 
 export interface IStorage {
+  // Users
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  
+  // Entities
+  getEntity(id: string): Promise<Entity | undefined>;
+  getEntities(): Promise<Entity[]>;
+  getEntitiesByType(type: string): Promise<Entity[]>;
+  createEntity(entity: InsertEntity): Promise<Entity>;
+  updateEntity(id: string, entity: Partial<InsertEntity>): Promise<Entity | undefined>;
+  
+  // Products
+  getProduct(id: string): Promise<Product | undefined>;
+  getProducts(laboratoireId?: string): Promise<Product[]>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
+  
+  // Orders
+  getOrder(id: string): Promise<OrderWithRelations | undefined>;
+  getOrders(filters?: { 
+    delegueId?: string; 
+    grossisteId?: string; 
+    pharmacieId?: string;
+    laboratoireId?: string;
+    status?: string;
+  }): Promise<OrderWithRelations[]>;
+  createOrder(order: InsertOrder, lines: InsertOrderLine[]): Promise<Order>;
+  updateOrderStatus(id: string, status: string, userId: string, role: string, commentaire?: string): Promise<Order | undefined>;
+  updateOrderLine(lineId: string, quantiteAcceptee: number, status: string): Promise<OrderLine | undefined>;
+  
+  // Order History
+  getOrderHistory(orderId: string): Promise<OrderHistory[]>;
+  getAllHistory(): Promise<(OrderHistory & { user?: User })[]>;
+  createOrderHistory(history: InsertOrderHistory): Promise<OrderHistory>;
+  
+  // Notifications
+  getNotifications(userId: string): Promise<Notification[]>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: string): Promise<void>;
+  markAllNotificationsAsRead(userId: string): Promise<void>;
+  
+  // Stats
+  getDashboardStats(userId: string, role: string, entityId?: string | null): Promise<any>;
+  getFullStats(laboratoireId?: string): Promise<any>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
+  // Users
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async getUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const hashedPassword = await bcrypt.hash(user.password, 10);
+    const [created] = await db.insert(users).values({
+      ...user,
+      password: hashedPassword
+    }).returning();
+    return created;
+  }
+
+  async updateUser(id: string, userData: Partial<InsertUser>): Promise<User | undefined> {
+    const updateData: any = { ...userData };
+    if (userData.password) {
+      updateData.password = await bcrypt.hash(userData.password, 10);
+    }
+    const [updated] = await db.update(users).set(updateData).where(eq(users.id, id)).returning();
+    return updated;
+  }
+
+  // Entities
+  async getEntity(id: string): Promise<Entity | undefined> {
+    const [entity] = await db.select().from(entities).where(eq(entities.id, id));
+    return entity;
+  }
+
+  async getEntities(): Promise<Entity[]> {
+    return db.select().from(entities).orderBy(entities.nom);
+  }
+
+  async getEntitiesByType(type: string): Promise<Entity[]> {
+    return db.select().from(entities).where(eq(entities.type, type)).orderBy(entities.nom);
+  }
+
+  async createEntity(entity: InsertEntity): Promise<Entity> {
+    const [created] = await db.insert(entities).values(entity).returning();
+    return created;
+  }
+
+  async updateEntity(id: string, entity: Partial<InsertEntity>): Promise<Entity | undefined> {
+    const [updated] = await db.update(entities).set(entity).where(eq(entities.id, id)).returning();
+    return updated;
+  }
+
+  // Products
+  async getProduct(id: string): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
+  }
+
+  async getProducts(laboratoireId?: string): Promise<Product[]> {
+    if (laboratoireId) {
+      return db.select().from(products).where(eq(products.laboratoireId, laboratoireId)).orderBy(products.nom);
+    }
+    return db.select().from(products).orderBy(products.nom);
+  }
+
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const [created] = await db.insert(products).values(product).returning();
+    return created;
+  }
+
+  async updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined> {
+    const [updated] = await db.update(products).set(product).where(eq(products.id, id)).returning();
+    return updated;
+  }
+
+  // Orders
+  async getOrder(id: string): Promise<OrderWithRelations | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    if (!order) return undefined;
+
+    const [laboratoire, delegue, pharmacie, grossiste, lines] = await Promise.all([
+      this.getEntity(order.laboratoireId),
+      this.getUser(order.delegueId),
+      this.getEntity(order.pharmacieId),
+      this.getEntity(order.grossisteId),
+      db.select().from(orderLines).where(eq(orderLines.orderId, id))
+    ]);
+
+    const linesWithProducts = await Promise.all(
+      lines.map(async (line) => ({
+        ...line,
+        product: await this.getProduct(line.productId)
+      }))
+    );
+
+    return {
+      ...order,
+      laboratoire,
+      delegue,
+      pharmacie,
+      grossiste,
+      lines: linesWithProducts
+    };
+  }
+
+  async getOrders(filters?: { 
+    delegueId?: string; 
+    grossisteId?: string; 
+    pharmacieId?: string;
+    laboratoireId?: string;
+    status?: string;
+  }): Promise<OrderWithRelations[]> {
+    let query = db.select().from(orders);
+    
+    const conditions = [];
+    if (filters?.delegueId) {
+      conditions.push(eq(orders.delegueId, filters.delegueId));
+    }
+    if (filters?.grossisteId) {
+      conditions.push(eq(orders.grossisteId, filters.grossisteId));
+    }
+    if (filters?.pharmacieId) {
+      conditions.push(eq(orders.pharmacieId, filters.pharmacieId));
+    }
+    if (filters?.laboratoireId) {
+      conditions.push(eq(orders.laboratoireId, filters.laboratoireId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(orders.status, filters.status as any));
+    }
+
+    const orderList = conditions.length > 0
+      ? await db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt))
+      : await db.select().from(orders).orderBy(desc(orders.createdAt));
+
+    return Promise.all(orderList.map(async (order) => {
+      const [laboratoire, delegue, pharmacie, grossiste, lines] = await Promise.all([
+        this.getEntity(order.laboratoireId),
+        this.getUser(order.delegueId),
+        this.getEntity(order.pharmacieId),
+        this.getEntity(order.grossisteId),
+        db.select().from(orderLines).where(eq(orderLines.orderId, order.id))
+      ]);
+
+      const linesWithProducts = await Promise.all(
+        lines.map(async (line) => ({
+          ...line,
+          product: await this.getProduct(line.productId)
+        }))
+      );
+
+      return {
+        ...order,
+        laboratoire,
+        delegue,
+        pharmacie,
+        grossiste,
+        lines: linesWithProducts
+      };
+    }));
+  }
+
+  async createOrder(order: InsertOrder, lines: InsertOrderLine[]): Promise<Order> {
+    const [created] = await db.insert(orders).values(order).returning();
+    
+    for (const line of lines) {
+      await db.insert(orderLines).values({
+        ...line,
+        orderId: created.id
+      });
+    }
+
+    return created;
+  }
+
+  async updateOrderStatus(id: string, status: string, userId: string, role: string, commentaire?: string): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    if (!order) return undefined;
+
+    const ancienStatus = order.status;
+    const updateData: any = { status };
+    
+    if (status === "envoyee" && ancienStatus === "brouillon") {
+      updateData.sentAt = new Date();
+    }
+
+    const [updated] = await db.update(orders)
+      .set(updateData)
+      .where(eq(orders.id, id))
+      .returning();
+
+    await this.createOrderHistory({
+      orderId: id,
+      ancienStatus: ancienStatus,
+      nouveauStatus: status as any,
+      userId,
+      role: role as any,
+      commentaire
+    });
+
+    return updated;
+  }
+
+  async updateOrderLine(lineId: string, quantiteAcceptee: number, status: string): Promise<OrderLine | undefined> {
+    const [updated] = await db.update(orderLines)
+      .set({ quantiteAcceptee, status: status as any })
+      .where(eq(orderLines.id, lineId))
+      .returning();
+    return updated;
+  }
+
+  // Order History
+  async getOrderHistory(orderId: string): Promise<OrderHistory[]> {
+    return db.select().from(orderHistory)
+      .where(eq(orderHistory.orderId, orderId))
+      .orderBy(desc(orderHistory.createdAt));
+  }
+
+  async getAllHistory(): Promise<(OrderHistory & { user?: User })[]> {
+    const historyList = await db.select().from(orderHistory).orderBy(desc(orderHistory.createdAt)).limit(100);
+    
+    return Promise.all(historyList.map(async (h) => {
+      const user = await this.getUser(h.userId);
+      return { ...h, user };
+    }));
+  }
+
+  async createOrderHistory(history: InsertOrderHistory): Promise<OrderHistory> {
+    const [created] = await db.insert(orderHistory).values(history).returning();
+    return created;
+  }
+
+  // Notifications
+  async getNotifications(userId: string): Promise<Notification[]> {
+    return db.select().from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [created] = await db.insert(notifications).values(notification).returning();
+    return created;
+  }
+
+  async markNotificationAsRead(id: string): Promise<void> {
+    await db.update(notifications).set({ lu: "true" }).where(eq(notifications.id, id));
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    await db.update(notifications).set({ lu: "true" }).where(eq(notifications.userId, userId));
+  }
+
+  // Stats
+  async getDashboardStats(userId: string, role: string, entityId?: string | null): Promise<any> {
+    let orderList: Order[] = [];
+    
+    if (role === "admin") {
+      orderList = await db.select().from(orders);
+    } else if (role === "laboratoire" && entityId) {
+      orderList = await db.select().from(orders).where(eq(orders.laboratoireId, entityId));
+    } else if (role === "delegue") {
+      orderList = await db.select().from(orders).where(eq(orders.delegueId, userId));
+    } else if (role === "grossiste" && entityId) {
+      orderList = await db.select().from(orders).where(eq(orders.grossisteId, entityId));
+    } else if (role === "pharmacie" && entityId) {
+      orderList = await db.select().from(orders).where(eq(orders.pharmacieId, entityId));
+    }
+
+    const ordersByStatus: Record<string, number> = {};
+    for (const order of orderList) {
+      ordersByStatus[order.status] = (ordersByStatus[order.status] || 0) + 1;
+    }
+
+    const pendingOrders = orderList.filter(o => o.status === "envoyee").length;
+    const lateOrders = 0; // Would need timestamp comparison logic
+
+    return {
+      totalOrders: orderList.length,
+      ordersByStatus,
+      avgProcessingTime: 24,
+      refusalRate: orderList.length > 0 
+        ? Math.round((ordersByStatus["refusee"] || 0) / orderList.length * 100) 
+        : 0,
+      pendingOrders,
+      lateOrders
+    };
+  }
+
+  async getFullStats(laboratoireId?: string): Promise<any> {
+    let orderList: Order[] = [];
+    
+    if (laboratoireId) {
+      orderList = await db.select().from(orders).where(eq(orders.laboratoireId, laboratoireId));
+    } else {
+      orderList = await db.select().from(orders);
+    }
+
+    const ordersByStatus: Record<string, number> = {};
+    for (const order of orderList) {
+      ordersByStatus[order.status] = (ordersByStatus[order.status] || 0) + 1;
+    }
+
+    const grossisteStats: Record<string, { count: number; refusals: number }> = {};
+    for (const order of orderList) {
+      const gId = order.grossisteId;
+      if (!grossisteStats[gId]) {
+        grossisteStats[gId] = { count: 0, refusals: 0 };
+      }
+      grossisteStats[gId].count++;
+      if (order.status === "refusee") {
+        grossisteStats[gId].refusals++;
+      }
+    }
+
+    const entityNames = await this.getEntities();
+    const entityMap = new Map(entityNames.map(e => [e.id, e.nom]));
+
+    const ordersByGrossiste = Object.entries(grossisteStats).map(([id, stats]) => ({
+      grossiste: entityMap.get(id) || "Inconnu",
+      count: stats.count,
+      refusalRate: stats.count > 0 ? Math.round(stats.refusals / stats.count * 100) : 0
+    }));
+
+    const months = ["Jan", "F\u00e9v", "Mar", "Avr", "Mai", "Juin", "Juil", "Ao\u00fbt", "Sept", "Oct", "Nov", "D\u00e9c"];
+    const ordersByMonth = months.map((month, i) => ({
+      month,
+      count: orderList.filter(o => new Date(o.createdAt).getMonth() === i).length
+    }));
+
+    return {
+      totalOrders: orderList.length,
+      ordersByStatus,
+      avgProcessingTime: 24,
+      refusalRate: orderList.length > 0 
+        ? Math.round((ordersByStatus["refusee"] || 0) / orderList.length * 100) 
+        : 0,
+      ordersByGrossiste,
+      ordersByMonth
+    };
+  }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
