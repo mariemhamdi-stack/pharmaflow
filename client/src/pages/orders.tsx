@@ -77,11 +77,11 @@ export default function OrdersPage() {
         <div>
           <h1 className="text-3xl font-bold text-foreground" data-testid="text-orders-title">Commandes</h1>
           <p className="text-muted-foreground mt-1">
-            {user?.role === "delegue" ? "G\u00e9rez vos commandes" : 
+            {user?.role === "delegue" ? "Gérez vos commandes" : 
              user?.role === "grossiste" ? "Traitez les commandes" :
              user?.role === "pharmacie" ? "Suivez et validez vos commandes" :
              user?.role === "laboratoire" ? "Suivi des commandes de votre laboratoire" :
-             "Toutes les commandes du syst\u00e8me"}
+             "Toutes les commandes du système"}
           </p>
         </div>
         {canCreateOrder && (
@@ -129,17 +129,17 @@ export default function OrdersPage() {
                 <SelectContent>
                   <SelectItem value="all">Tous les statuts</SelectItem>
                   <SelectItem value="brouillon">Brouillon</SelectItem>
-                  <SelectItem value="validee_delegue">Valid\u00e9e d\u00e9l\u00e9gu\u00e9</SelectItem>
-                  <SelectItem value="validee_pharmacie">Valid\u00e9e pharmacie</SelectItem>
-                  <SelectItem value="envoyee">Envoy\u00e9e</SelectItem>
-                  <SelectItem value="acceptee">Accept\u00e9e</SelectItem>
-                  <SelectItem value="refusee">Refus\u00e9e</SelectItem>
-                  <SelectItem value="partiellement_acceptee">Partiellement accept\u00e9e</SelectItem>
-                  <SelectItem value="en_preparation">En pr\u00e9paration</SelectItem>
-                  <SelectItem value="livree">Livr\u00e9e</SelectItem>
-                  <SelectItem value="cloturee">Cl\u00f4tur\u00e9e</SelectItem>
+                  <SelectItem value="validee_delegue">Validée délégué</SelectItem>
+                  <SelectItem value="validee_pharmacie">Validée pharmacie</SelectItem>
+                  <SelectItem value="envoyee">Envoyée</SelectItem>
+                  <SelectItem value="acceptee">Acceptée</SelectItem>
+                  <SelectItem value="refusee">Refusée</SelectItem>
+                  <SelectItem value="partiellement_acceptee">Partiellement acceptée</SelectItem>
+                  <SelectItem value="en_preparation">En préparation</SelectItem>
+                  <SelectItem value="livree">Livrée</SelectItem>
+                  <SelectItem value="cloturee">Clôturée</SelectItem>
                   <SelectItem value="litige">Litige</SelectItem>
-                  <SelectItem value="annulee">Annul\u00e9e</SelectItem>
+                  <SelectItem value="annulee">Annulée</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -158,8 +158,8 @@ export default function OrdersPage() {
               <h3 className="text-lg font-medium text-foreground">Aucune commande</h3>
               <p className="text-muted-foreground mt-1">
                 {search || statusFilter !== "all" 
-                  ? "Aucune commande ne correspond \u00e0 vos crit\u00e8res" 
-                  : "Commencez par cr\u00e9er une nouvelle commande"}
+                  ? "Aucune commande ne correspond à vos critères" 
+                  : "Commencez par créer une nouvelle commande"}
               </p>
             </div>
           ) : (
@@ -167,7 +167,7 @@ export default function OrdersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>R\u00e9f\u00e9rence</TableHead>
+                    <TableHead>Référence</TableHead>
                     <TableHead>Pharmacie</TableHead>
                     <TableHead>Grossiste</TableHead>
                     <TableHead>Statut</TableHead>
@@ -254,11 +254,11 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
       return apiRequest("POST", "/api/orders", data);
     },
     onSuccess: () => {
-      toast({ title: "Commande cr\u00e9\u00e9e", description: "La commande a \u00e9t\u00e9 cr\u00e9\u00e9e en brouillon" });
+      toast({ title: "Commande créée", description: "La commande a été créée en brouillon" });
       onSuccess();
     },
     onError: (error: any) => {
-      toast({ title: "Erreur", description: error.message || "Impossible de cr\u00e9er la commande", variant: "destructive" });
+      toast({ title: "Erreur", description: error.message || "Impossible de créer la commande", variant: "destructive" });
     }
   });
 
@@ -300,7 +300,7 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
       <DialogHeader>
         <DialogTitle>Nouvelle commande</DialogTitle>
         <DialogDescription>
-          Cr\u00e9ez une nouvelle commande pour une pharmacie
+          Créez une nouvelle commande pour une pharmacie
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -309,7 +309,7 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
             <label className="text-sm font-medium">Pharmacie</label>
             <Select value={pharmacieId} onValueChange={setPharmacieId}>
               <SelectTrigger data-testid="select-pharmacie">
-                <SelectValue placeholder="S\u00e9lectionner..." />
+                <SelectValue placeholder="Sélectionner..." />
               </SelectTrigger>
               <SelectContent>
                 {pharmacies.map((p) => (
@@ -322,7 +322,7 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
             <label className="text-sm font-medium">Grossiste</label>
             <Select value={grossisteId} onValueChange={setGrossisteId}>
               <SelectTrigger data-testid="select-grossiste">
-                <SelectValue placeholder="S\u00e9lectionner..." />
+                <SelectValue placeholder="Sélectionner..." />
               </SelectTrigger>
               <SelectContent>
                 {grossistes.map((g) => (
@@ -386,14 +386,14 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
           <Textarea
             value={commentaire}
             onChange={(e) => setCommentaire(e.target.value)}
-            placeholder="Instructions sp\u00e9ciales..."
+            placeholder="Instructions spéciales..."
             data-testid="textarea-commentaire"
           />
         </div>
 
         <DialogFooter>
           <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-order">
-            {createMutation.isPending ? "Cr\u00e9ation..." : "Cr\u00e9er la commande"}
+            {createMutation.isPending ? "Création..." : "Créer la commande"}
           </Button>
         </DialogFooter>
       </form>
@@ -419,11 +419,11 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
       return apiRequest("PATCH", `/api/orders/${order.id}/status`, { status, commentaire });
     },
     onSuccess: () => {
-      toast({ title: "Statut mis \u00e0 jour" });
+      toast({ title: "Statut mis à jour" });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
     },
     onError: (error: any) => {
-      toast({ title: "Erreur", description: error.message || "Impossible de mettre \u00e0 jour le statut", variant: "destructive" });
+      toast({ title: "Erreur", description: error.message || "Impossible de mettre à jour le statut", variant: "destructive" });
     }
   });
 
@@ -432,12 +432,12 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
       return apiRequest("PATCH", `/api/orders/${order.id}/reassign`, { grossisteId });
     },
     onSuccess: () => {
-      toast({ title: "Commande r\u00e9attribu\u00e9e" });
+      toast({ title: "Commande réattribuée" });
       setShowReassignDialog(false);
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
     },
     onError: (error: any) => {
-      toast({ title: "Erreur", description: error.message || "Impossible de r\u00e9attribuer", variant: "destructive" });
+      toast({ title: "Erreur", description: error.message || "Impossible de réattribuer", variant: "destructive" });
     }
   });
 
@@ -446,7 +446,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
       return apiRequest("PATCH", `/api/orders/${order.id}/cancel`, {});
     },
     onSuccess: () => {
-      toast({ title: "Commande annul\u00e9e" });
+      toast({ title: "Commande annulée" });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
     },
     onError: (error: any) => {
@@ -469,7 +469,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
   };
 
   const handlePharmacieRefuse = () => {
-    updateStatusMutation.mutate({ status: "brouillon", commentaire: "Refus\u00e9e par la pharmacie" });
+    updateStatusMutation.mutate({ status: "brouillon", commentaire: "Refusée par la pharmacie" });
   };
 
   // Brouillon → Validee delegue (delegue only)
@@ -586,7 +586,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
             data-testid={`button-reassign-order-${order.id}`}
           >
             <RefreshCw className="w-4 h-4 mr-1" />
-            R\u00e9attribuer
+            Réattribuer
           </Button>
           <Button
             size="sm"
@@ -602,9 +602,9 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
         <Dialog open={showReassignDialog} onOpenChange={setShowReassignDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>R\u00e9attribuer la commande</DialogTitle>
+              <DialogTitle>Réattribuer la commande</DialogTitle>
               <DialogDescription>
-                S\u00e9lectionnez un autre grossiste pour cette commande
+                Sélectionnez un autre grossiste pour cette commande
               </DialogDescription>
             </DialogHeader>
             {order.motifRefus && (
@@ -630,7 +630,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
                 disabled={!newGrossisteId || reassignMutation.isPending}
                 data-testid="button-confirm-reassign"
               >
-                R\u00e9attribuer
+                Réattribuer
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -648,7 +648,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
         data-testid={`button-prepare-order-${order.id}`}
       >
         <Package className="w-4 h-4 mr-1" />
-        Pr\u00e9parer
+        Préparer
       </Button>
     );
   }
@@ -710,13 +710,13 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
 
   const statusSteps = [
     { key: "brouillon", label: "Brouillon" },
-    { key: "validee_delegue", label: "Valid\u00e9e d\u00e9l\u00e9gu\u00e9" },
-    { key: "validee_pharmacie", label: "Valid\u00e9e pharmacie" },
-    { key: "envoyee", label: "Envoy\u00e9e" },
-    { key: "acceptee", label: "Accept\u00e9e" },
-    { key: "en_preparation", label: "En pr\u00e9paration" },
-    { key: "livree", label: "Livr\u00e9e" },
-    { key: "cloturee", label: "Cl\u00f4tur\u00e9e" }
+    { key: "validee_delegue", label: "Validée délégué" },
+    { key: "validee_pharmacie", label: "Validée pharmacie" },
+    { key: "envoyee", label: "Envoyée" },
+    { key: "acceptee", label: "Acceptée" },
+    { key: "en_preparation", label: "En préparation" },
+    { key: "livree", label: "Livrée" },
+    { key: "cloturee", label: "Clôturée" }
   ];
 
   const currentStepIndex = statusSteps.findIndex(s => s.key === order.status);
@@ -729,7 +729,7 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
           <StatusBadge status={order.status} type="order" />
         </DialogTitle>
         <DialogDescription>
-          Cr\u00e9\u00e9e le {format(new Date(order.createdAt), "dd MMMM yyyy '\u00e0' HH:mm", { locale: fr })}
+          Créée le {format(new Date(order.createdAt), "dd MMMM yyyy 'à' HH:mm", { locale: fr })}
         </DialogDescription>
       </DialogHeader>
 
@@ -814,8 +814,8 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Produit</TableHead>
-                  <TableHead className="text-right">Qt\u00e9 command\u00e9e</TableHead>
-                  <TableHead className="text-right">Qt\u00e9 accept\u00e9e</TableHead>
+                  <TableHead className="text-right">Qté commandée</TableHead>
+                  <TableHead className="text-right">Qté acceptée</TableHead>
                   <TableHead>Statut</TableHead>
                 </TableRow>
               </TableHeader>
@@ -844,17 +844,17 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Dates cl\u00e9s</CardTitle>
+            <CardTitle className="text-sm font-medium">Dates clés</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
-                <p className="text-muted-foreground">Cr\u00e9ation</p>
+                <p className="text-muted-foreground">Création</p>
                 <p className="font-medium">{format(new Date(order.createdAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
               </div>
               {order.validatedByDelegueAt && (
                 <div>
-                  <p className="text-muted-foreground">Validation d\u00e9l\u00e9gu\u00e9</p>
+                  <p className="text-muted-foreground">Validation délégué</p>
                   <p className="font-medium">{format(new Date(order.validatedByDelegueAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
                 </div>
               )}

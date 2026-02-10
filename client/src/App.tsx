@@ -45,10 +45,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function AdminRoute({ children }: { children: React.ReactNode }) {
+function RoleRoute({ children, roles }: { children: React.ReactNode; roles: string[] }) {
   const { user } = useAuth();
   
-  if (user?.role !== "admin") {
+  if (!user || !roles.includes(user.role)) {
     return <NotFound />;
   }
   
@@ -62,23 +62,23 @@ function Router() {
       <Route path="/orders" component={OrdersPage} />
       <Route path="/products" component={ProductsPage} />
       <Route path="/users">
-        <AdminRoute>
+        <RoleRoute roles={["admin", "laboratoire"]}>
           <UsersPage />
-        </AdminRoute>
+        </RoleRoute>
       </Route>
       <Route path="/entities">
-        <AdminRoute>
+        <RoleRoute roles={["admin", "laboratoire"]}>
           <EntitiesPage />
-        </AdminRoute>
+        </RoleRoute>
       </Route>
       <Route path="/offers" component={OffersPage} />
       <Route path="/actions" component={ActionsPage} />
       <Route path="/communications" component={CommunicationsPage} />
       <Route path="/notifications" component={NotificationsPage} />
       <Route path="/history">
-        <AdminRoute>
+        <RoleRoute roles={["admin", "laboratoire"]}>
           <HistoryPage />
-        </AdminRoute>
+        </RoleRoute>
       </Route>
       <Route path="/stats" component={StatsPage} />
       <Route component={NotFound} />

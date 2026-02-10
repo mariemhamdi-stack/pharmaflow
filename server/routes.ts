@@ -115,15 +115,25 @@ export async function registerRoutes(
   // USERS ROUTES
   // ============================================
   
-  app.get("/api/users", requireRole("admin"), async (req, res) => {
-    const users = await storage.getUsers();
+  app.get("/api/users", requireRole("admin", "laboratoire"), async (req, res) => {
+    const currentUser = (req as any).user;
+    let users = await storage.getUsers();
+    if (currentUser.role === "laboratoire") {
+      users = users.filter(u => u.entityId === currentUser.entityId);
+    }
     const usersWithoutPasswords = users.map(({ password, ...u }) => u);
     res.json(usersWithoutPasswords);
   });
 
-  app.post("/api/users", requireRole("admin"), async (req, res) => {
+  app.post("/api/users", requireRole("admin", "laboratoire"), async (req, res) => {
     try {
+      const currentUser = (req as any).user;
       const userData = insertUserSchema.parse(req.body);
+
+      if (currentUser.role === "laboratoire") {
+        userData.entityId = currentUser.entityId;
+      }
+
       const existing = await storage.getUserByEmail(userData.email);
       if (existing) {
         return res.status(400).json({ error: "Email déjà utilisé" });
@@ -136,9 +146,18 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/users/:id", requireRole("admin"), async (req, res) => {
+  app.patch("/api/users/:id", requireRole("admin", "laboratoire"), async (req, res) => {
     try {
+      const currentUser = (req as any).user;
       const id = req.params.id as string;
+
+      if (currentUser.role === "laboratoire") {
+        const targetUser = await storage.getUser(id);
+        if (!targetUser || targetUser.entityId !== currentUser.entityId) {
+          return res.status(403).json({ error: "Vous ne pouvez modifier que les utilisateurs de votre laboratoire" });
+        }
+      }
+
       const user = await storage.updateUser(id, req.body);
       if (!user) {
         return res.status(404).json({ error: "Utilisateur non trouvé" });
@@ -752,8 +771,14 @@ export async function registerRoutes(
   // HISTORY ROUTES
   // ============================================
   
-  app.get("/api/history", requireRole("admin"), async (req, res) => {
-    const history = await storage.getAllHistory();
+  app.get("/api/history", requireRole("admin", "laboratoire"), async (req, res) => {
+    const currentUser = (req as any).user;
+    let history = await storage.getAllHistory();
+    if (currentUser.role === "laboratoire") {
+      const labOrders = await storage.getOrders({ laboratoireId: currentUser.entityId });
+      const labOrderIds = new Set(labOrders.map(o => o.id));
+      history = history.filter(h => labOrderIds.has(h.orderId));
+    }
     res.json(history);
   });
 

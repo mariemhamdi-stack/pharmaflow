@@ -216,9 +216,9 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
   const [email, setEmail] = useState(user?.email || "");
   const [telephone, setTelephone] = useState(user?.telephone || "");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState(user?.role || "delegue");
+  const [role, setRole] = useState<string>(user?.role || "delegue");
   const [entityId, setEntityId] = useState(user?.entityId || "");
-  const [status, setStatus] = useState(user?.status || "actif");
+  const [status, setStatus] = useState<string>(user?.status || "actif");
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
@@ -324,7 +324,7 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+            placeholder="••••••••"
             data-testid="input-user-password"
           />
         </div>

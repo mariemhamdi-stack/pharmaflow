@@ -188,7 +188,7 @@ export default function DashboardPage() {
   const renderDelegateDashboard = () => (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Tableau de bord D\u00e9l\u00e9gu\u00e9</h1>
+        <h1 className="text-3xl font-bold text-foreground">Tableau de bord Délégué</h1>
         <p className="text-muted-foreground mt-1">Suivi de vos commandes</p>
       </div>
 
@@ -204,7 +204,7 @@ export default function DashboardPage() {
           title="Brouillons"
           value={stats?.ordersByStatus?.brouillon || 0}
           icon={Package}
-          description="\u00c0 valider"
+          description="À valider"
           isLoading={isLoading}
         />
         <StatCard
@@ -215,7 +215,7 @@ export default function DashboardPage() {
           isLoading={isLoading}
         />
         <StatCard
-          title="Accept\u00e9es"
+          title="Acceptées"
           value={stats?.ordersByStatus?.acceptee || 0}
           icon={CheckCircle2}
           description="Par le grossiste"
@@ -276,7 +276,7 @@ export default function DashboardPage() {
           isLoading={isLoading}
         />
         <StatCard
-          title="\u00c0 valider"
+          title="À valider"
           value={stats?.ordersByStatus?.validee_delegue || 0}
           icon={Clock}
           description="En attente de votre validation"
@@ -287,14 +287,14 @@ export default function DashboardPage() {
           title="En attente livraison"
           value={(stats?.ordersByStatus?.en_preparation || 0) + (stats?.ordersByStatus?.acceptee || 0)}
           icon={Truck}
-          description="\u00c0 r\u00e9ceptionner"
+          description="À réceptionner"
           isLoading={isLoading}
         />
         <StatCard
-          title="Livr\u00e9es"
+          title="Livrées"
           value={stats?.ordersByStatus?.livree || 0}
           icon={CheckCircle2}
-          description="\u00c0 confirmer"
+          description="À confirmer"
           isLoading={isLoading}
         />
       </div>
