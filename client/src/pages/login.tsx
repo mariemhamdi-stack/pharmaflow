@@ -138,8 +138,10 @@ export default function LoginPage() {
               </p>
               <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                 <p><span className="font-medium">Admin:</span> admin@pharmaflow.com / admin123</p>
+                <p><span className="font-medium">Laboratoire:</span> labo@pharmaflow.com / labo123</p>
                 <p><span className="font-medium">Délégué:</span> delegue@pharmaflow.com / delegue123</p>
                 <p><span className="font-medium">Grossiste:</span> grossiste@pharmaflow.com / grossiste123</p>
+                <p><span className="font-medium">Pharmacie:</span> pharmacie@pharmaflow.com / pharmacie123</p>
               </div>
             </div>
           </CardContent>
