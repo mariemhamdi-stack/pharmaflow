@@ -188,7 +188,7 @@ export default function DashboardPage() {
   const renderDelegateDashboard = () => (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Tableau de bord Délégué</h1>
+        <h1 className="text-3xl font-bold text-foreground">Tableau de bord D\u00e9l\u00e9gu\u00e9</h1>
         <p className="text-muted-foreground mt-1">Suivi de vos commandes</p>
       </div>
 
@@ -201,24 +201,24 @@ export default function DashboardPage() {
           isLoading={isLoading}
         />
         <StatCard
-          title="En attente"
-          value={stats?.ordersByStatus?.envoyee || 0}
-          icon={Clock}
-          description="En attente de réponse"
-          isLoading={isLoading}
-        />
-        <StatCard
-          title="Acceptées"
-          value={stats?.ordersByStatus?.acceptee || 0}
-          icon={CheckCircle2}
-          description="Commandes validées"
-          isLoading={isLoading}
-        />
-        <StatCard
           title="Brouillons"
           value={stats?.ordersByStatus?.brouillon || 0}
           icon={Package}
-          description="À envoyer"
+          description="\u00c0 valider"
+          isLoading={isLoading}
+        />
+        <StatCard
+          title="En attente pharmacie"
+          value={stats?.ordersByStatus?.validee_delegue || 0}
+          icon={Clock}
+          description="En attente de validation"
+          isLoading={isLoading}
+        />
+        <StatCard
+          title="Accept\u00e9es"
+          value={stats?.ordersByStatus?.acceptee || 0}
+          icon={CheckCircle2}
+          description="Par le grossiste"
           isLoading={isLoading}
         />
       </div>
@@ -267,7 +267,7 @@ export default function DashboardPage() {
         <p className="text-muted-foreground mt-1">Suivi de vos commandes</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Mes commandes"
           value={stats?.totalOrders || 0}
@@ -276,17 +276,25 @@ export default function DashboardPage() {
           isLoading={isLoading}
         />
         <StatCard
+          title="\u00c0 valider"
+          value={stats?.ordersByStatus?.validee_delegue || 0}
+          icon={Clock}
+          description="En attente de votre validation"
+          isLoading={isLoading}
+          trend="neutral"
+        />
+        <StatCard
           title="En attente livraison"
           value={(stats?.ordersByStatus?.en_preparation || 0) + (stats?.ordersByStatus?.acceptee || 0)}
           icon={Truck}
-          description="À réceptionner"
+          description="\u00c0 r\u00e9ceptionner"
           isLoading={isLoading}
         />
         <StatCard
-          title="Livrées"
+          title="Livr\u00e9es"
           value={stats?.ordersByStatus?.livree || 0}
           icon={CheckCircle2}
-          description="À confirmer"
+          description="\u00c0 confirmer"
           isLoading={isLoading}
         />
       </div>

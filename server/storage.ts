@@ -1,5 +1,6 @@
 import { 
   users, entities, products, orders, orderLines, orderHistory, notifications,
+  commercialOffers, commercialActions, communications,
   type User, type InsertUser,
   type Entity, type InsertEntity,
   type Product, type InsertProduct,
@@ -7,10 +8,13 @@ import {
   type OrderLine, type InsertOrderLine,
   type OrderHistory, type InsertOrderHistory,
   type Notification, type InsertNotification,
+  type CommercialOffer, type InsertCommercialOffer,
+  type CommercialAction, type InsertCommercialAction,
+  type Communication, type InsertCommunication,
   type OrderWithRelations
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte, or } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import bcrypt from "bcrypt";
 
@@ -46,6 +50,7 @@ export interface IStorage {
   }): Promise<OrderWithRelations[]>;
   createOrder(order: InsertOrder, lines: InsertOrderLine[]): Promise<Order>;
   updateOrderStatus(id: string, status: string, userId: string, role: string, commentaire?: string): Promise<Order | undefined>;
+  updateOrderGrossiste(id: string, grossisteId: string): Promise<Order | undefined>;
   updateOrderLine(lineId: string, quantiteAcceptee: number, status: string): Promise<OrderLine | undefined>;
   
   // Order History
@@ -58,6 +63,25 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: string): Promise<void>;
   markAllNotificationsAsRead(userId: string): Promise<void>;
+  
+  // Commercial Offers
+  getCommercialOffers(laboratoireId?: string): Promise<CommercialOffer[]>;
+  getCommercialOffer(id: string): Promise<CommercialOffer | undefined>;
+  createCommercialOffer(offer: InsertCommercialOffer): Promise<CommercialOffer>;
+  updateCommercialOffer(id: string, data: Partial<InsertCommercialOffer>): Promise<CommercialOffer | undefined>;
+  getOffersForOrder(orderId: string): Promise<CommercialOffer[]>;
+  
+  // Commercial Actions
+  getCommercialActions(laboratoireId?: string): Promise<CommercialAction[]>;
+  getActiveCommercialActions(): Promise<CommercialAction[]>;
+  createCommercialAction(action: InsertCommercialAction): Promise<CommercialAction>;
+  updateCommercialAction(id: string, data: Partial<InsertCommercialAction>): Promise<CommercialAction | undefined>;
+  
+  // Communications
+  getCommunications(role?: string, entityId?: string): Promise<Communication[]>;
+  createCommunication(comm: InsertCommunication): Promise<Communication>;
+  updateCommunication(id: string, data: Partial<InsertCommunication>): Promise<Communication | undefined>;
+  incrementCommunicationViews(id: string): Promise<void>;
   
   // Stats
   getDashboardStats(userId: string, role: string, entityId?: string | null): Promise<any>;
@@ -150,12 +174,13 @@ export class DatabaseStorage implements IStorage {
     const [order] = await db.select().from(orders).where(eq(orders.id, id));
     if (!order) return undefined;
 
-    const [laboratoire, delegue, pharmacie, grossiste, lines] = await Promise.all([
+    const [laboratoire, delegue, pharmacie, grossiste, lines, offers] = await Promise.all([
       this.getEntity(order.laboratoireId),
       this.getUser(order.delegueId),
       this.getEntity(order.pharmacieId),
       this.getEntity(order.grossisteId),
-      db.select().from(orderLines).where(eq(orderLines.orderId, id))
+      db.select().from(orderLines).where(eq(orderLines.orderId, id)),
+      db.select().from(commercialOffers).where(eq(commercialOffers.orderId, id))
     ]);
 
     const linesWithProducts = await Promise.all(
@@ -171,7 +196,8 @@ export class DatabaseStorage implements IStorage {
       delegue,
       pharmacie,
       grossiste,
-      lines: linesWithProducts
+      lines: linesWithProducts,
+      offers
     };
   }
 
@@ -252,8 +278,17 @@ export class DatabaseStorage implements IStorage {
     const ancienStatus = order.status;
     const updateData: any = { status };
     
-    if (status === "envoyee" && ancienStatus === "brouillon") {
+    if (status === "validee_delegue") {
+      updateData.validatedByDelegueAt = new Date();
+    }
+    if (status === "validee_pharmacie") {
+      updateData.validatedByPharmacieAt = new Date();
+    }
+    if (status === "envoyee") {
       updateData.sentAt = new Date();
+    }
+    if (status === "refusee" && commentaire) {
+      updateData.motifRefus = commentaire;
     }
 
     const [updated] = await db.update(orders)
@@ -270,6 +305,14 @@ export class DatabaseStorage implements IStorage {
       commentaire
     });
 
+    return updated;
+  }
+
+  async updateOrderGrossiste(id: string, grossisteId: string): Promise<Order | undefined> {
+    const [updated] = await db.update(orders)
+      .set({ grossisteId, status: "envoyee" as any, motifRefus: null, sentAt: new Date() })
+      .where(eq(orders.id, id))
+      .returning();
     return updated;
   }
 
@@ -322,6 +365,102 @@ export class DatabaseStorage implements IStorage {
     await db.update(notifications).set({ lu: "true" }).where(eq(notifications.userId, userId));
   }
 
+  // Commercial Offers
+  async getCommercialOffers(laboratoireId?: string): Promise<CommercialOffer[]> {
+    if (laboratoireId) {
+      return db.select().from(commercialOffers)
+        .where(eq(commercialOffers.laboratoireId, laboratoireId))
+        .orderBy(desc(commercialOffers.createdAt));
+    }
+    return db.select().from(commercialOffers).orderBy(desc(commercialOffers.createdAt));
+  }
+
+  async getCommercialOffer(id: string): Promise<CommercialOffer | undefined> {
+    const [offer] = await db.select().from(commercialOffers).where(eq(commercialOffers.id, id));
+    return offer;
+  }
+
+  async createCommercialOffer(offer: InsertCommercialOffer): Promise<CommercialOffer> {
+    const [created] = await db.insert(commercialOffers).values(offer).returning();
+    return created;
+  }
+
+  async updateCommercialOffer(id: string, data: Partial<InsertCommercialOffer>): Promise<CommercialOffer | undefined> {
+    const [updated] = await db.update(commercialOffers).set(data).where(eq(commercialOffers.id, id)).returning();
+    return updated;
+  }
+
+  async getOffersForOrder(orderId: string): Promise<CommercialOffer[]> {
+    return db.select().from(commercialOffers).where(eq(commercialOffers.orderId, orderId));
+  }
+
+  // Commercial Actions
+  async getCommercialActions(laboratoireId?: string): Promise<CommercialAction[]> {
+    if (laboratoireId) {
+      return db.select().from(commercialActions)
+        .where(eq(commercialActions.laboratoireId, laboratoireId))
+        .orderBy(desc(commercialActions.createdAt));
+    }
+    return db.select().from(commercialActions).orderBy(desc(commercialActions.createdAt));
+  }
+
+  async getActiveCommercialActions(): Promise<CommercialAction[]> {
+    const now = new Date();
+    return db.select().from(commercialActions)
+      .where(and(
+        eq(commercialActions.active, true),
+        lte(commercialActions.dateDebut, now),
+        gte(commercialActions.dateFin, now)
+      ))
+      .orderBy(desc(commercialActions.createdAt));
+  }
+
+  async createCommercialAction(action: InsertCommercialAction): Promise<CommercialAction> {
+    const [created] = await db.insert(commercialActions).values(action).returning();
+    return created;
+  }
+
+  async updateCommercialAction(id: string, data: Partial<InsertCommercialAction>): Promise<CommercialAction | undefined> {
+    const [updated] = await db.update(commercialActions).set(data).where(eq(commercialActions.id, id)).returning();
+    return updated;
+  }
+
+  // Communications
+  async getCommunications(role?: string, entityId?: string): Promise<Communication[]> {
+    const now = new Date();
+    const allComms = await db.select().from(communications)
+      .where(and(
+        eq(communications.active, true),
+        lte(communications.dateDebut, now),
+        gte(communications.dateFin, now)
+      ))
+      .orderBy(desc(communications.createdAt));
+    
+    return allComms.filter(comm => {
+      if (role && comm.targetRoles) {
+        const roles = comm.targetRoles.split(",");
+        if (!roles.includes(role)) return false;
+      }
+      return true;
+    });
+  }
+
+  async createCommunication(comm: InsertCommunication): Promise<Communication> {
+    const [created] = await db.insert(communications).values(comm).returning();
+    return created;
+  }
+
+  async updateCommunication(id: string, data: Partial<InsertCommunication>): Promise<Communication | undefined> {
+    const [updated] = await db.update(communications).set(data).where(eq(communications.id, id)).returning();
+    return updated;
+  }
+
+  async incrementCommunicationViews(id: string): Promise<void> {
+    await db.update(communications)
+      .set({ vues: sql`${communications.vues} + 1` })
+      .where(eq(communications.id, id));
+  }
+
   // Stats
   async getDashboardStats(userId: string, role: string, entityId?: string | null): Promise<any> {
     let orderList: Order[] = [];
@@ -344,7 +483,8 @@ export class DatabaseStorage implements IStorage {
     }
 
     const pendingOrders = orderList.filter(o => o.status === "envoyee").length;
-    const lateOrders = 0; // Would need timestamp comparison logic
+    const awaitingValidation = orderList.filter(o => o.status === "validee_delegue").length;
+    const lateOrders = 0;
 
     return {
       totalOrders: orderList.length,
@@ -354,6 +494,7 @@ export class DatabaseStorage implements IStorage {
         ? Math.round((ordersByStatus["refusee"] || 0) / orderList.length * 100) 
         : 0,
       pendingOrders,
+      awaitingValidation,
       lateOrders
     };
   }
@@ -393,7 +534,7 @@ export class DatabaseStorage implements IStorage {
       refusalRate: stats.count > 0 ? Math.round(stats.refusals / stats.count * 100) : 0
     }));
 
-    const months = ["Jan", "F\u00e9v", "Mar", "Avr", "Mai", "Juin", "Juil", "Ao\u00fbt", "Sept", "Oct", "Nov", "D\u00e9c"];
+    const months = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"];
     const ordersByMonth = months.map((month, i) => ({
       month,
       count: orderList.filter(o => new Date(o.createdAt).getMonth() === i).length

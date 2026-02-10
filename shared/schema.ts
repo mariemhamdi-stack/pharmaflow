@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, pgEnum, boolean, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -9,6 +9,8 @@ export const userStatusEnum = pgEnum("user_status", ["actif", "suspendu"]);
 export const productStatusEnum = pgEnum("product_status", ["actif", "inactif"]);
 export const orderStatusEnum = pgEnum("order_status", [
   "brouillon",
+  "validee_delegue",
+  "validee_pharmacie",
   "envoyee",
   "acceptee",
   "refusee",
@@ -16,19 +18,27 @@ export const orderStatusEnum = pgEnum("order_status", [
   "en_preparation",
   "livree",
   "cloturee",
-  "litige"
+  "litige",
+  "annulee"
 ]);
 export const lineStatusEnum = pgEnum("line_status", ["en_attente", "acceptee", "refusee", "partiellement_acceptee"]);
 export const notificationTypeEnum = pgEnum("notification_type", ["email", "in_app"]);
+export const offerTypeEnum = pgEnum("offer_type", ["remise", "pack", "mise_en_place"]);
+export const actionScopeEnum = pgEnum("action_scope", ["globale", "ciblee"]);
+export const communicationTypeEnum = pgEnum("communication_type", ["banniere", "popup", "actualite"]);
+export const communicationCategoryEnum = pgEnum("communication_category", ["informative", "promotionnelle", "institutionnelle"]);
 
 // Entities table (laboratoire, grossiste, pharmacie)
 export const entities = pgTable("entities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   nom: text("nom").notNull(),
-  type: text("type").notNull(), // laboratoire, grossiste, pharmacie
+  type: text("type").notNull(),
   adresse: text("adresse"),
   telephone: text("telephone"),
   email: text("email"),
+  blocked: boolean("blocked").default(false),
+  blockedBy: varchar("blocked_by").references(() => entities.id),
+  blockedAt: timestamp("blocked_at"),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
@@ -43,6 +53,9 @@ export const users = pgTable("users", {
   role: userRoleEnum("role").notNull().default("delegue"),
   entityId: varchar("entity_id").references(() => entities.id),
   status: userStatusEnum("status").notNull().default("actif"),
+  blocked: boolean("blocked").default(false),
+  blockedBy: varchar("blocked_by"),
+  blockedAt: timestamp("blocked_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   lastLogin: timestamp("last_login")
 });
@@ -55,6 +68,7 @@ export const products = pgTable("products", {
   laboratoireId: varchar("laboratoire_id").references(() => entities.id).notNull(),
   forme: text("forme"),
   dosage: text("dosage"),
+  prix: numeric("prix"),
   status: productStatusEnum("status").notNull().default("actif"),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
@@ -68,8 +82,11 @@ export const orders = pgTable("orders", {
   grossisteId: varchar("grossiste_id").references(() => entities.id).notNull(),
   status: orderStatusEnum("status").notNull().default("brouillon"),
   commentaire: text("commentaire"),
+  motifRefus: text("motif_refus"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  sentAt: timestamp("sent_at")
+  sentAt: timestamp("sent_at"),
+  validatedByDelegueAt: timestamp("validated_by_delegue_at"),
+  validatedByPharmacieAt: timestamp("validated_by_pharmacie_at")
 });
 
 // Order lines table
@@ -106,14 +123,79 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
+// Commercial offers (negotiated by delegates)
+export const commercialOffers = pgTable("commercial_offers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: offerTypeEnum("type").notNull(),
+  laboratoireId: varchar("laboratoire_id").references(() => entities.id).notNull(),
+  delegueId: varchar("delegue_id").references(() => users.id),
+  pharmacieId: varchar("pharmacie_id").references(() => entities.id),
+  orderId: varchar("order_id").references(() => orders.id),
+  titre: text("titre").notNull(),
+  description: text("description"),
+  productIds: text("product_ids"),
+  remisePourcentage: numeric("remise_pourcentage"),
+  packQuantite: integer("pack_quantite"),
+  packGratuit: integer("pack_gratuit"),
+  miseEnPlaceQuantite: integer("mise_en_place_quantite"),
+  conditions: text("conditions"),
+  dateDebut: timestamp("date_debut").defaultNow().notNull(),
+  dateFin: timestamp("date_fin"),
+  validee: boolean("validee").default(false),
+  valideeParLabo: boolean("validee_par_labo").default(false),
+  valideeParPharmacie: boolean("validee_par_pharmacie").default(false),
+  impactFinancier: numeric("impact_financier"),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+// Lab-initiated commercial actions
+export const commercialActions = pgTable("commercial_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  laboratoireId: varchar("laboratoire_id").references(() => entities.id).notNull(),
+  titre: text("titre").notNull(),
+  description: text("description"),
+  type: offerTypeEnum("type").notNull(),
+  scope: actionScopeEnum("scope").notNull().default("globale"),
+  productIds: text("product_ids"),
+  remisePourcentage: numeric("remise_pourcentage"),
+  packQuantite: integer("pack_quantite"),
+  packGratuit: integer("pack_gratuit"),
+  conditions: text("conditions"),
+  dateDebut: timestamp("date_debut").defaultNow().notNull(),
+  dateFin: timestamp("date_fin").notNull(),
+  active: boolean("active").default(true),
+  targetEntities: text("target_entities"),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+// In-app communications
+export const communications = pgTable("communications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  laboratoireId: varchar("laboratoire_id").references(() => entities.id).notNull(),
+  type: communicationTypeEnum("type").notNull(),
+  category: communicationCategoryEnum("category").notNull().default("informative"),
+  titre: text("titre").notNull(),
+  contenu: text("contenu").notNull(),
+  targetRoles: text("target_roles"),
+  targetEntities: text("target_entities"),
+  dateDebut: timestamp("date_debut").defaultNow().notNull(),
+  dateFin: timestamp("date_fin").notNull(),
+  active: boolean("active").default(true),
+  vues: integer("vues").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
 // Insert schemas
 export const insertEntitySchema = createInsertSchema(entities).omit({ id: true, createdAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, lastLogin: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
-export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, sentAt: true });
+export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, sentAt: true, validatedByDelegueAt: true, validatedByPharmacieAt: true });
 export const insertOrderLineSchema = createInsertSchema(orderLines).omit({ id: true });
 export const insertOrderHistorySchema = createInsertSchema(orderHistory).omit({ id: true, createdAt: true });
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
+export const insertCommercialOfferSchema = createInsertSchema(commercialOffers).omit({ id: true, createdAt: true });
+export const insertCommercialActionSchema = createInsertSchema(commercialActions).omit({ id: true, createdAt: true });
+export const insertCommunicationSchema = createInsertSchema(communications).omit({ id: true, createdAt: true });
 
 // Types
 export type Entity = typeof entities.$inferSelect;
@@ -137,6 +219,15 @@ export type InsertOrderHistory = z.infer<typeof insertOrderHistorySchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 
+export type CommercialOffer = typeof commercialOffers.$inferSelect;
+export type InsertCommercialOffer = z.infer<typeof insertCommercialOfferSchema>;
+
+export type CommercialAction = typeof commercialActions.$inferSelect;
+export type InsertCommercialAction = z.infer<typeof insertCommercialActionSchema>;
+
+export type Communication = typeof communications.$inferSelect;
+export type InsertCommunication = z.infer<typeof insertCommunicationSchema>;
+
 // Login schema
 export const loginSchema = z.object({
   email: z.string().email("Email invalide"),
@@ -152,14 +243,17 @@ export type OrderWithRelations = Order & {
   pharmacie?: Entity;
   grossiste?: Entity;
   lines?: (OrderLine & { product?: Product })[];
+  offers?: CommercialOffer[];
 };
 
-// Status transitions
+// Status transitions - Double validation workflow
 export const statusTransitions: Record<string, { actor: string; nextStatuses: string[] }> = {
-  brouillon: { actor: "delegue", nextStatuses: ["envoyee"] },
+  brouillon: { actor: "delegue", nextStatuses: ["validee_delegue"] },
+  validee_delegue: { actor: "pharmacie", nextStatuses: ["validee_pharmacie"] },
+  validee_pharmacie: { actor: "system", nextStatuses: ["envoyee"] },
   envoyee: { actor: "grossiste", nextStatuses: ["acceptee", "refusee", "partiellement_acceptee"] },
   acceptee: { actor: "grossiste", nextStatuses: ["en_preparation"] },
   en_preparation: { actor: "grossiste", nextStatuses: ["livree"] },
-  livree: { actor: "pharmacie", nextStatuses: ["cloturee"] },
-  // Litige can be set by pharmacie at any time
+  livree: { actor: "pharmacie", nextStatuses: ["cloturee", "litige"] },
+  refusee: { actor: "delegue", nextStatuses: ["envoyee", "annulee"] },
 };

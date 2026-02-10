@@ -1,0 +1,422 @@
+Cahier des charges technique
+Plateforme web de gestion et traçabilité des commandes pharmaceutiques
+
+1. Contexte & objectifs
+1.1 Contexte
+Le circuit pharmaceutique implique plusieurs acteurs (laboratoires, grossistes, pharmacies, délégués médicaux) dont les interactions autour de la commande sont encore majoritairement fragmentées (téléphone, WhatsApp, bons papier, ERP non interopérables).
+Cette plateforme vise à digitaliser, tracer et fluidifier le processus de prise de commande terrain, depuis le délégué jusqu’au grossiste, avec une visibilité complète pour le laboratoire et la pharmacie.
+1.2 Objectifs principaux
+Centraliser les commandes pharmaceutiques
+Attribuer une commande à un grossiste dès sa création
+Assurer une traçabilité complète des statuts
+Réduire les délais, litiges et pertes d’information
+Créer une base exploitable pour l’analyse et la décision
+
+2. Périmètre fonctionnel
+Inclus
+Gestion multi-acteurs (laboratoires, grossistes, pharmacies, délégués)
+Création et suivi des commandes
+Historisation des statuts
+Notifications automatiques
+Dashboards de pilotage
+Exclu (phase ultérieure)
+Paiement en ligne
+Gestion comptable
+Intégration ERP grossiste
+Gestion des retours produits
+
+3. Acteurs & rôles
+3.1 Laboratoire
+Administration globale
+Gestion des produits et partenaires
+Supervision des commandes
+Accès aux statistiques consolidées
+3.2 Délégué médical
+Création de commandes
+Attribution du grossiste
+Suivi de l’exécution
+3.3 Grossiste
+Réception des commandes
+Acceptation / refus / livraison
+Indication des disponibilités
+3.4 Pharmacie
+Consultation des commandes
+Confirmation de réception
+Signalement de litiges
+
+4. Parcours fonctionnels détaillés
+⚠️ Principe clé : double validation obligatoire
+Aucune commande ne peut être transmise à un grossiste sans double validation : 1. Validation initiale par le délégué médical 2. Validation explicite par la pharmacie
+Ce mécanisme garantit l’accord de la pharmacie sur les produits, quantités et le grossiste avant engagement logistique.
+
+
+4.b Diagrammes UML – Vue fonctionnelle
+4.b.1 Diagramme de cas d’utilisation (Use Case)
+Acteurs : - Laboratoire - Délégué médical - Grossiste - Pharmacie
+Cas d’utilisation principaux :
+Délégué médical - S’authentifier - Consulter le catalogue produits - Sélectionner une pharmacie - Créer une commande - Attribuer un grossiste - Suivre l’état des commandes
+Grossiste - Consulter les commandes reçues - Accepter une commande - Refuser une commande (avec motif) - Accepter partiellement une commande - Mettre à jour le statut (préparation, livraison)
+Pharmacie - Consulter les commandes la concernant - Confirmer la réception - Déclarer un litige
+Laboratoire - Gérer les utilisateurs - Gérer le catalogue produits - Visualiser toutes les commandes - Analyser les performances (délais, taux d’acceptation)
+
+4.b.2 Diagramme de séquence – Cycle de vie d’une commande (double validation)
+Scénario : commande validée par le délégué et la pharmacie
+Le Délégué s’authentifie
+Le Délégué crée une Commande (produits + quantités)
+Le Délégué attribue un Grossiste
+Le Délégué valide la commande
+Le Système enregistre (statut : Validée délégué)
+Le Système notifie la Pharmacie
+La Pharmacie consulte la commande
+La Pharmacie valide la commande
+Le Système enregistre (statut : Validée pharmacie)
+Le Système transmet la commande au Grossiste
+Le Système notifie le Grossiste (statut : Envoyée)
+Le Grossiste traite la commande
+Scénario : commande standard acceptée et livrée
+Le Délégué s’authentifie sur la plateforme
+Le Délégué sélectionne une Pharmacie
+Le Délégué crée une Commande (produits + quantités)
+Le Délégué attribue un Grossiste
+Le Système enregistre la commande (statut : Envoyée)
+Le Système notifie le Grossiste
+Le Grossiste consulte la commande
+Le Grossiste accepte la commande
+Le Système met à jour le statut (Acceptée)
+Le Grossiste prépare la commande
+Le Grossiste marque la commande comme Livrée
+Le Système notifie la Pharmacie
+La Pharmacie confirme la réception
+Le Système clôture la commande (Clôturée)
+
+4.b.3 Diagramme de séquence – Cas alternatif (refus grossiste)
+Le Délégué crée et envoie une commande
+Le Grossiste reçoit la notification
+Le Grossiste refuse la commande (motif obligatoire)
+Le Système met à jour le statut (Refusée)
+Le Système notifie le Délégué et le Laboratoire
+Le Délégué peut :
+Réattribuer la commande à un autre grossiste
+Annuler la commande
+
+4.1 Création et validation d’une commande
+Le délégué sélectionne une pharmacie
+Sélection des produits du laboratoire
+Saisie des quantités
+Attribution d’un grossiste
+Validation délégué
+Statut : Validée délégué
+Notification envoyée à la pharmacie
+Validation pharmacie
+Statut : Validée pharmacie
+Envoi automatique au grossiste
+Statut : Envoyée 1. Le délégué sélectionne une pharmacie 2. Sélection des produits du laboratoire 3. Saisie des quantités 4. Attribution d’un grossiste 5. Validation et envoi
+Statut initial : Envoyée
+4.2 Traitement par le grossiste
+Actions possibles :
+Accepter
+Refuser (motif obligatoire)
+Accepter partiellement
+Statuts intermédiaires : - Acceptée - Refusée - Partiellement acceptée
+4.3 Livraison
+Passage au statut En préparation
+Puis Livrée
+4.4 Clôture
+Confirmation par la pharmacie
+Statut final : Clôturée
+
+5. Gestion des statuts et traçabilité
+5.1 Liste des statuts
+Brouillon
+Envoyée
+Acceptée
+Refusée
+Partiellement acceptée
+En préparation
+Livrée
+Clôturée
+Litige
+5.2 Historisation
+Chaque changement de statut doit enregistrer : - Ancien statut - Nouveau statut - Date / heure - Utilisateur responsable - Commentaire (si applicable)
+
+6. Modèle de données (conceptuel)
+Entités principales 
+Utilisateur
+Rôle
+Laboratoire
+Grossiste
+Pharmacie
+Produit
+Commande
+LigneCommande
+HistoriqueCommande
+Relations clés
+Une commande appartient à un laboratoire
+Une commande est attribuée à un grossiste
+Une commande concerne une pharmacie
+Une commande contient plusieurs lignes produits
+
+7. Exigences techniques
+7.1 Architecture
+Architecture web 3-tiers
+Backend API REST
+Frontend SPA
+7.2 Stack recommandée
+Frontend : React ou Vue.js
+Backend : Laravel / NestJS
+Base de données : PostgreSQL
+Authentification : JWT / OAuth2
+7.3 Sécurité
+Gestion des rôles et permissions
+Chiffrement des mots de passe
+Journalisation des actions sensibles
+
+8. Notifications
+Email lors de :
+Nouvelle commande
+Changement de statut
+Refus ou litige
+Notifications in-app
+
+9. Gestion des offres commerciales, promotions et négociations
+Cette section définit les mécanismes permettant de gérer les remises, packs, mises en place et actions marketing tout en garantissant une traçabilité complète et opposable.
+
+9.1 Négociations terrain par les délégués (offres exceptionnelles)
+Cas couverts
+Remise exceptionnelle (%)
+Pack promotionnel (ex : 5 + 1 gratuit)
+Mise en place (quantité gratuite ou conditionnée)
+Règles métier
+Toute offre négociée par un délégué doit être :
+rattachée à une commande
+validée par la pharmacie
+validée par le laboratoire (selon seuils)
+Une offre exceptionnelle doit préciser :
+type d’offre (remise / pack / mise en place)
+produits concernés
+conditions quantitatives
+avantage accordé
+durée de validité
+Les offres négociées sont non modifiables après validation finale.
+Toute offre exceptionnelle est historisée et traçable.
+Traçabilité associée
+Initiateur (délégué)
+Pharmacie bénéficiaire
+Validation(s) effectuée(s)
+Impact financier estimé
+
+9.2 Actions commerciales initiées par le laboratoire
+Types d’actions
+Remise exceptionnelle nationale ou ciblée
+Pack promotionnel
+Action marketing (lancement produit, challenge, etc.)
+Règles métier
+Une action laboratoire peut être :
+globale (toutes les pharmacies)
+ciblée (région, segment, pharmacie)
+Toute action doit définir :
+période de validité
+produits concernés
+règles d’éligibilité
+Les actions sont visibles instantanément par :
+les pharmacies
+les délégués
+les grossistes (si impact logistique)
+Les actions laboratoire sont automatiquement proposées lors de la création de commande.
+
+9.3 Communication & publicité in-app
+Canaux disponibles
+Bannières
+Pop-ups ciblés
+Fil d’actualités
+Cibles
+Pharmacies
+Grossistes
+Délégués
+Règles
+Toute communication est liée à un laboratoire.
+Les campagnes peuvent être :
+informatives
+promotionnelles
+institutionnelles
+Chaque campagne possède :
+une durée
+une cible
+un contenu validé
+Les statistiques de consultation sont enregistrées.
+
+9.4 Intégration aux commandes
+Lors de la création de commande, le système doit :
+proposer automatiquement les offres applicables
+empêcher l’application d’offres incompatibles
+Toute offre appliquée apparaît clairement sur :
+la commande
+la ligne produit
+Le grossiste visualise :
+les conditions commerciales
+les quantités gratuites / remisées
+
+9.5 Indicateurs & reporting liés aux actions
+Taux d’utilisation des promotions
+Impact CA / volumes
+Performance par délégué
+Performance par pharmacie
+
+10. Performance & scalabilité
+Indicateurs clés
+Nombre de commandes par période
+Taux d’acceptation par grossiste
+Délais moyens de traitement
+Commandes en anomalie
+
+10. Performance & scalabilité
+Support multi-laboratoires
+Support multi-grossistes
+Capacité > 100 000 commandes/an
+Temps de réponse < 2s
+
+11. Règles métier bloquantes & validations système
+Cette section définit les règles strictes que le système doit appliquer afin de garantir la cohérence métier, la traçabilité et la conformité du processus de commande pharmaceutique.
+
+11.1 Règles générales (globales)
+Toute commande doit suivre une double validation obligatoire avant envoi au grossiste.
+Une commande doit obligatoirement être liée à :
+un laboratoire
+une pharmacie
+un grossiste
+un délégué
+Une commande doit contenir au minimum une ligne produit.
+Un produit ne peut appartenir qu’à un seul laboratoire.
+Un utilisateur ne peut agir que dans le périmètre de son rôle.
+Toute action critique doit être journalisée (audit trail).
+Une commande doit obligatoirement être liée à :
+un laboratoire
+une pharmacie
+un grossiste
+un délégué
+Une commande doit contenir au minimum une ligne produit.
+Un produit ne peut appartenir qu’à un seul laboratoire.
+Un utilisateur ne peut agir que dans le périmètre de son rôle.
+Toute action critique doit être journalisée (audit trail).
+
+11.2 Règles liées au délégué médical
+Le délégué ne peut créer une commande que pour :
+un laboratoire auquel il est rattaché
+une pharmacie autorisée par ce laboratoire
+Le délégué ne peut modifier une commande que tant que son statut est :
+Brouillon
+Une fois la commande envoyée (Envoyée), elle devient non modifiable par le délégué.
+En cas de refus par le grossiste, le délégué peut :
+réattribuer la commande à un autre grossiste
+annuler la commande
+
+11.3 Règles liées au grossiste
+Un grossiste ne peut voir que les commandes qui lui sont attribuées.
+Le grossiste doit obligatoirement fournir un motif de refus.
+En cas d’acceptation partielle :
+les quantités refusées doivent être explicitement indiquées
+le système doit conserver la trace des quantités initiales
+Le grossiste ne peut modifier le statut que selon l’ordre suivant :
+Envoyée → Acceptée / Refusée
+Acceptée → En préparation
+En préparation → Livrée
+Le grossiste ne peut pas supprimer une commande.
+
+11.4 Règles liées à la pharmacie
+La pharmacie ne peut consulter que les commandes la concernant.
+La pharmacie ne peut valider une commande que si son statut est Validée délégué.
+La validation pharmacie est obligatoire pour transmission au grossiste.
+En cas de refus pharmacie :
+la commande revient au statut Brouillon
+le délégué est notifié
+La pharmacie ne peut confirmer la réception que si le statut est Livrée.
+Une confirmation de réception est irréversible.
+La pharmacie peut déclarer un litige uniquement après livraison.
+La pharmacie ne peut consulter que les commandes la concernant.
+La pharmacie ne peut confirmer la réception que si le statut est Livrée.
+Une confirmation de réception est irréversible.
+La pharmacie peut déclarer un litige uniquement après livraison.
+
+11.5 Règles liées au laboratoire
+Le laboratoire a une visibilité totale sur toutes ses commandes.
+Le laboratoire ne peut pas modifier une commande opérationnelle.
+Le laboratoire peut bloquer :
+un grossiste
+une pharmacie
+un délégué
+Le blocage empêche toute nouvelle création de commande impliquant l’entité bloquée.
+
+11.6 Règles de gestion des statuts (machine à états)
+Statuts intermédiaires de validation
+Brouillon
+Validée délégué
+Validée pharmacie
+Envoyée
+Règles clés
+Transition Brouillon → Validée délégué : délégué uniquement
+Transition Validée délégué → Validée pharmacie : pharmacie uniquement
+Transition Validée pharmacie → Envoyée : système automatiquement
+Toute tentative d’envoi sans double validation est rejetée.
+Toute transition non autorisée doit être bloquée par le système.
+Chaque transition génère :
+un enregistrement historique
+une notification aux acteurs concernés
+Les transitions de statuts sont strictement contrôlées.
+Toute transition non autorisée doit être rejetée par le système.
+Chaque transition doit générer :
+un enregistrement dans l’historique
+une notification aux acteurs concernés
+
+11.7 Validations système obligatoires
+Validation à la création
+Pharmacie active
+Grossiste actif
+Produits actifs
+Quantités > 0
+Validation à l’envoi
+Commande complète
+Grossiste attribué
+Validation à l’acceptation
+Cohérence des quantités
+Validation à la livraison
+Commande acceptée
+
+11.8 Gestion des erreurs & rejets
+Messages d’erreur explicites
+Blocage des actions invalides
+Aucune suppression physique des données
+
+11.9 Traçabilité & audit
+Chaque action critique doit enregistrer : - utilisateur - rôle - action - date/heure - ancien et nouveau statut
+
+11. Contraintes réglementaires
+Traçabilité conforme aux exigences du secteur pharmaceutique
+Conservation des historiques
+Accès restreint par rôle
+
+12. Roadmap indicative
+Phase 1 – MVP
+Commandes
+Suivi statuts
+Rôles utilisateurs
+Phase 2
+Dashboards avancés
+Routage intelligent
+Phase 3
+Intégrations externes
+Mobile app
+
+13. Critères de succès
+Adoption par les délégués
+Réduction des délais de commande
+Visibilité accrue pour les laboratoires
+Satisfaction des grossistes et pharmacies
+
+Document destiné à servir de base contractuelle et technique pour le développement de la plateforme.
+
+
+
+
+Objectif de l’app:
+Reduit le trafic
+Tracabilité 

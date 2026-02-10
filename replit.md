@@ -1,40 +1,48 @@
 # PharmaFlow - Gestion des Commandes Pharmaceutiques
 
 ## Overview
-PharmaFlow est un syst\u00e8me complet de gestion des commandes pharmaceutiques permettant la tra\u00e7abilit\u00e9 des commandes entre laboratoires, d\u00e9l\u00e9gu\u00e9s, grossistes et pharmacies.
+PharmaFlow est un systeme complet de gestion des commandes pharmaceutiques permettant la tracabilite des commandes entre laboratoires, delegues, grossistes et pharmacies. Le systeme integre un workflow de double validation (delegue + pharmacie), des offres commerciales, des actions marketing laboratoire et des communications in-app.
 
 ## Core Features
-- **Authentification & Contr\u00f4le d'acc\u00e8s** : Syst\u00e8me de r\u00f4les strict (admin, laboratoire, d\u00e9l\u00e9gu\u00e9, grossiste, pharmacie)
-- **Gestion des commandes** : Workflow complet avec transitions de statuts valid\u00e9es
-- **Catalogue produits** : Gestion des produits par laboratoire
+- **Authentification & Controle d'acces** : Systeme de roles strict (admin, laboratoire, delegue, grossiste, pharmacie)
+- **Double validation commandes** : Workflow delegue valide -> pharmacie valide -> envoi auto au grossiste
+- **Reattribution de commandes** : Apres refus grossiste, le delegue peut reattribuer a un autre grossiste
+- **Offres commerciales** : Remises, packs promotionnels, mises en place (negociees par delegues)
+- **Actions marketing** : Actions commerciales initiees par les laboratoires (globales ou ciblees)
+- **Communications in-app** : Bannieres, pop-ups, actualites par laboratoire
+- **Blocage d'entites** : Le laboratoire peut bloquer grossiste/pharmacie/delegue
 - **Audit trail** : Historique immuable de toutes les actions
-- **Notifications** : Alertes in-app pour les changements de statut
-- **Dashboards** : Tableaux de bord adapt\u00e9s \u00e0 chaque r\u00f4le
+- **Notifications** : Alertes in-app et email pour les changements de statut
+- **Dashboards** : Tableaux de bord adaptes a chaque role
 
 ## User Roles
-| R\u00f4le | Acc\u00e8s |
+| Role | Acces |
 |------|-------|
-| Admin | Acc\u00e8s global \u00e0 toutes les fonctionnalit\u00e9s |
-| Laboratoire | Acc\u00e8s aux commandes et produits de son labo |
-| D\u00e9l\u00e9gu\u00e9 | Acc\u00e8s uniquement \u00e0 ses propres commandes |
-| Grossiste | Acc\u00e8s aux commandes qui lui sont attribu\u00e9es |
-| Pharmacie | Lecture + confirmation de livraison uniquement |
+| Admin | Acces global a toutes les fonctionnalites |
+| Laboratoire | Commandes, produits, offres, actions, communications de son labo |
+| Delegue | Ses propres commandes, produits, offres |
+| Grossiste | Commandes qui lui sont attribuees |
+| Pharmacie | Validation commandes + confirmation livraison + litige |
 
 ## Test Credentials
 - **Admin**: admin@pharmaflow.com / admin123
-- **D\u00e9l\u00e9gu\u00e9**: delegue@pharmaflow.com / delegue123
+- **Delegue**: delegue@pharmaflow.com / delegue123
 - **Grossiste**: grossiste@pharmaflow.com / grossiste123
 - **Pharmacie**: pharmacie@pharmaflow.com / pharmacie123
 - **Laboratoire**: labo@pharmaflow.com / labo123
 
-## Order Status Workflow
+## Order Status Workflow (Double Validation)
 ```
-Brouillon \u2192 Envoy\u00e9e (D\u00e9l\u00e9gu\u00e9)
-Envoy\u00e9e \u2192 Accept\u00e9e / Refus\u00e9e / Partiellement accept\u00e9e (Grossiste)
-Accept\u00e9e \u2192 En pr\u00e9paration (Grossiste)
-En pr\u00e9paration \u2192 Livr\u00e9e (Grossiste)
-Livr\u00e9e \u2192 Cl\u00f4tur\u00e9e (Pharmacie)
-* Litige peut \u00eatre d\u00e9clench\u00e9 par la Pharmacie \u00e0 tout moment
+Brouillon -> Validee delegue (Delegue valide)
+Validee delegue -> Validee pharmacie (Pharmacie valide) OU retour Brouillon (Pharmacie refuse)
+Validee pharmacie -> Envoyee (Automatique)
+Envoyee -> Acceptee / Refusee / Partiellement acceptee (Grossiste)
+Refusee -> Reattribution a un autre grossiste OU Annulee (Delegue)
+Acceptee -> En preparation (Grossiste)
+En preparation -> Livree (Grossiste)
+Livree -> Cloturee OU Litige (Pharmacie)
+* Litige uniquement apres livraison
+* Motif de refus obligatoire pour le grossiste
 ```
 
 ## Tech Stack
@@ -44,55 +52,94 @@ Livr\u00e9e \u2192 Cl\u00f4tur\u00e9e (Pharmacie)
 - **Database**: PostgreSQL with Drizzle ORM
 - **State**: TanStack Query (React Query)
 - **Routing**: Wouter
+- **Email**: Resend API
 
 ## Project Structure
 ```
 client/
   src/
-    components/     # Composants r\u00e9utilisables
+    components/     # Composants reutilisables
     pages/          # Pages de l'application
+      dashboard.tsx # Tableaux de bord par role
+      orders.tsx    # Gestion commandes (double validation, reassignment)
+      offers.tsx    # Offres commerciales
+      actions.tsx   # Actions marketing laboratoire
+      communications.tsx # Communications in-app
+      products.tsx  # Catalogue produits
+      users.tsx     # Gestion utilisateurs (admin)
+      entities.tsx  # Gestion entites (admin)
+      notifications.tsx # Centre de notifications
+      history.tsx   # Historique audit
+      stats.tsx     # Statistiques
     lib/            # Utilitaires (auth, queryClient)
     hooks/          # Custom hooks
 server/
-  index.ts          # Point d'entr\u00e9e serveur
+  index.ts          # Point d'entree serveur
   routes.ts         # API REST routes
-  storage.ts        # Couche d'acc\u00e8s aux donn\u00e9es
-  db.ts             # Configuration base de donn\u00e9es
-  seed.ts           # Donn\u00e9es initiales
+  storage.ts        # Couche d'acces aux donnees
+  db.ts             # Configuration base de donnees
+  seed.ts           # Donnees initiales
+  email.ts          # Templates et envoi d'emails
 shared/
-  schema.ts         # Sch\u00e9mas Drizzle + types TypeScript
+  schema.ts         # Schemas Drizzle + types TypeScript
 ```
 
 ## API Routes
 - `POST /api/auth/login` - Connexion
 - `GET /api/auth/me` - Utilisateur courant
-- `POST /api/auth/logout` - D\u00e9connexion
+- `POST /api/auth/logout` - Deconnexion
 - `GET /api/users` - Liste utilisateurs (admin)
-- `POST /api/users` - Cr\u00e9er utilisateur (admin)
+- `POST /api/users` - Creer utilisateur (admin)
 - `PATCH /api/users/:id` - Modifier utilisateur (admin)
-- `GET /api/entities` - Liste entit\u00e9s
-- `POST /api/entities` - Cr\u00e9er entit\u00e9 (admin)
+- `PATCH /api/users/:id/block` - Bloquer/debloquer utilisateur (admin/labo)
+- `GET /api/entities` - Liste entites
+- `POST /api/entities` - Creer entite (admin)
+- `PATCH /api/entities/:id` - Modifier entite
+- `PATCH /api/entities/:id/block` - Bloquer/debloquer entite (admin/labo)
 - `GET /api/products` - Liste produits
-- `POST /api/products` - Cr\u00e9er produit (admin/labo)
-- `GET /api/orders` - Liste commandes (filtr\u00e9e par r\u00f4le)
-- `POST /api/orders` - Cr\u00e9er commande (d\u00e9l\u00e9gu\u00e9)
-- `PATCH /api/orders/:id/status` - Changer statut
+- `POST /api/products` - Creer produit (admin/labo)
+- `PATCH /api/products/:id` - Modifier produit
+- `GET /api/orders` - Liste commandes (filtree par role)
+- `GET /api/orders/:id` - Detail commande
+- `POST /api/orders` - Creer commande (delegue)
+- `PATCH /api/orders/:id/status` - Changer statut (double validation)
+- `PATCH /api/orders/:id/reassign` - Reattribuer grossiste (delegue, apres refus)
+- `PATCH /api/orders/:id/cancel` - Annuler commande (delegue)
+- `GET /api/offers` - Liste offres commerciales
+- `POST /api/offers` - Creer offre
+- `PATCH /api/offers/:id` - Modifier offre
+- `GET /api/actions` - Liste actions commerciales
+- `POST /api/actions` - Creer action (labo)
+- `PATCH /api/actions/:id` - Modifier action
+- `GET /api/communications` - Liste communications
+- `POST /api/communications` - Creer communication (labo)
+- `PATCH /api/communications/:id` - Modifier communication
+- `POST /api/communications/:id/view` - Tracker vue
 - `GET /api/notifications` - Notifications utilisateur
+- `PATCH /api/notifications/:id/read` - Marquer comme lue
+- `POST /api/notifications/mark-all-read` - Marquer toutes comme lues
 - `GET /api/dashboard/stats` - Statistiques dashboard
+- `GET /api/stats` - Statistiques detaillees
 - `GET /api/history` - Historique audit (admin)
 
 ## Development
 ```bash
-npm run dev       # D\u00e9marrer le serveur de d\u00e9veloppement
+npm run dev       # Demarrer le serveur de developpement
 npm run db:push   # Appliquer les migrations
 ```
 
 ## Recent Changes
-- 2026-02-05: Version initiale avec toutes les fonctionnalit\u00e9s MVP
-  - Authentification et gestion des sessions
-  - CRUD complet pour utilisateurs, entit\u00e9s, produits
-  - Workflow de commandes avec transitions valid\u00e9es
-  - Audit trail complet et immuable
-  - Notifications in-app
-  - Dashboards par r\u00f4le
-  - Donn\u00e9es de test pr\u00e9charg\u00e9es
+- 2026-02-10: Mise a jour majeure
+  - Double validation: delegue valide puis pharmacie valide avant envoi au grossiste
+  - Reattribution de commandes apres refus grossiste
+  - Annulation de commandes (brouillon ou apres refus)
+  - Motif de refus obligatoire pour le grossiste
+  - Litige strictement apres livraison uniquement
+  - Offres commerciales (remises, packs, mises en place)
+  - Actions marketing laboratoire (globales/ciblees)
+  - Communications in-app (bannieres, pop-ups, actualites)
+  - Blocage d'entites et utilisateurs par le laboratoire
+  - Nouveaux statuts: validee_delegue, validee_pharmacie, annulee
+  - Dashboards mis a jour avec nouveaux statuts
+  - Templates email mis a jour
+- 2026-02-05: Version initiale avec toutes les fonctionnalites MVP

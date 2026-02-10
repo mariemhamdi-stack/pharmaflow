@@ -18,6 +18,9 @@ import EntitiesPage from "@/pages/entities";
 import NotificationsPage from "@/pages/notifications";
 import HistoryPage from "@/pages/history";
 import StatsPage from "@/pages/stats";
+import OffersPage from "@/pages/offers";
+import ActionsPage from "@/pages/actions";
+import CommunicationsPage from "@/pages/communications";
 import NotFound from "@/pages/not-found";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -68,6 +71,9 @@ function Router() {
           <EntitiesPage />
         </AdminRoute>
       </Route>
+      <Route path="/offers" component={OffersPage} />
+      <Route path="/actions" component={ActionsPage} />
+      <Route path="/communications" component={CommunicationsPage} />
       <Route path="/notifications" component={NotificationsPage} />
       <Route path="/history">
         <AdminRoute>
@@ -82,7 +88,7 @@ function Router() {
 
 function AuthenticatedApp() {
   const style = {
-    "--sidebar-width": "16rem",
+    "--sidebar-width": "17rem",
     "--sidebar-width-icon": "3rem",
   };
 

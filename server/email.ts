@@ -15,6 +15,8 @@ interface OrderEmailData {
 const getStatusLabel = (status: string): string => {
   const labels: Record<string, string> = {
     brouillon: 'Brouillon',
+    validee_delegue: 'Validée délégué',
+    validee_pharmacie: 'Validée pharmacie',
     envoyee: 'Envoyée',
     acceptee: 'Acceptée',
     refusee: 'Refusée',
@@ -22,7 +24,8 @@ const getStatusLabel = (status: string): string => {
     en_preparation: 'En préparation',
     livree: 'Livrée',
     cloturee: 'Clôturée',
-    litige: 'Litige'
+    litige: 'Litige',
+    annulee: 'Annulée'
   };
   return labels[status] || status;
 };

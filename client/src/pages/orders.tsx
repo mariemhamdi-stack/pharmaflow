@@ -24,7 +24,11 @@ import {
   AlertTriangle,
   Search,
   Filter,
-  Trash2
+  Trash2,
+  RefreshCw,
+  Ban,
+  CheckCircle2,
+  Clock
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -50,8 +54,9 @@ export default function OrdersPage() {
     queryKey: ["/api/products"]
   });
 
-  const pharmacies = entities?.filter(e => e.type === "pharmacie") || [];
-  const grossistes = entities?.filter(e => e.type === "grossiste") || [];
+  const pharmacies = entities?.filter(e => e.type === "pharmacie" && !e.blocked) || [];
+  const grossistes = entities?.filter(e => e.type === "grossiste" && !e.blocked) || [];
+  const allGrossistes = entities?.filter(e => e.type === "grossiste") || [];
 
   const filteredOrders = orders?.filter(order => {
     const matchesSearch = 
@@ -65,19 +70,18 @@ export default function OrdersPage() {
   });
 
   const canCreateOrder = user?.role === "delegue" || user?.role === "admin";
-  const canProcessOrder = user?.role === "grossiste" || user?.role === "admin";
-  const canConfirmDelivery = user?.role === "pharmacie" || user?.role === "admin";
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Commandes</h1>
+          <h1 className="text-3xl font-bold text-foreground" data-testid="text-orders-title">Commandes</h1>
           <p className="text-muted-foreground mt-1">
-            {user?.role === "delegue" ? "Gérez vos commandes" : 
+            {user?.role === "delegue" ? "G\u00e9rez vos commandes" : 
              user?.role === "grossiste" ? "Traitez les commandes" :
-             user?.role === "pharmacie" ? "Suivez vos commandes" :
-             "Toutes les commandes du système"}
+             user?.role === "pharmacie" ? "Suivez et validez vos commandes" :
+             user?.role === "laboratoire" ? "Suivi des commandes de votre laboratoire" :
+             "Toutes les commandes du syst\u00e8me"}
           </p>
         </div>
         {canCreateOrder && (
@@ -119,20 +123,23 @@ export default function OrdersPage() {
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48" data-testid="select-status-filter">
+                <SelectTrigger className="w-56" data-testid="select-status-filter">
                   <SelectValue placeholder="Filtrer par statut" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous les statuts</SelectItem>
                   <SelectItem value="brouillon">Brouillon</SelectItem>
-                  <SelectItem value="envoyee">Envoyée</SelectItem>
-                  <SelectItem value="acceptee">Acceptée</SelectItem>
-                  <SelectItem value="refusee">Refusée</SelectItem>
-                  <SelectItem value="partiellement_acceptee">Partiellement acceptée</SelectItem>
-                  <SelectItem value="en_preparation">En préparation</SelectItem>
-                  <SelectItem value="livree">Livrée</SelectItem>
-                  <SelectItem value="cloturee">Clôturée</SelectItem>
+                  <SelectItem value="validee_delegue">Valid\u00e9e d\u00e9l\u00e9gu\u00e9</SelectItem>
+                  <SelectItem value="validee_pharmacie">Valid\u00e9e pharmacie</SelectItem>
+                  <SelectItem value="envoyee">Envoy\u00e9e</SelectItem>
+                  <SelectItem value="acceptee">Accept\u00e9e</SelectItem>
+                  <SelectItem value="refusee">Refus\u00e9e</SelectItem>
+                  <SelectItem value="partiellement_acceptee">Partiellement accept\u00e9e</SelectItem>
+                  <SelectItem value="en_preparation">En pr\u00e9paration</SelectItem>
+                  <SelectItem value="livree">Livr\u00e9e</SelectItem>
+                  <SelectItem value="cloturee">Cl\u00f4tur\u00e9e</SelectItem>
                   <SelectItem value="litige">Litige</SelectItem>
+                  <SelectItem value="annulee">Annul\u00e9e</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -151,8 +158,8 @@ export default function OrdersPage() {
               <h3 className="text-lg font-medium text-foreground">Aucune commande</h3>
               <p className="text-muted-foreground mt-1">
                 {search || statusFilter !== "all" 
-                  ? "Aucune commande ne correspond à vos critères" 
-                  : "Commencez par créer une nouvelle commande"}
+                  ? "Aucune commande ne correspond \u00e0 vos crit\u00e8res" 
+                  : "Commencez par cr\u00e9er une nouvelle commande"}
               </p>
             </div>
           ) : (
@@ -160,7 +167,7 @@ export default function OrdersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Référence</TableHead>
+                    <TableHead>R\u00e9f\u00e9rence</TableHead>
                     <TableHead>Pharmacie</TableHead>
                     <TableHead>Grossiste</TableHead>
                     <TableHead>Statut</TableHead>
@@ -171,12 +178,12 @@ export default function OrdersPage() {
                 <TableBody>
                   {filteredOrders?.map((order) => (
                     <TableRow key={order.id} className="hover-elevate">
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="font-mono text-sm" data-testid={`text-order-ref-${order.id}`}>
                         {order.id.slice(0, 8)}...
                       </TableCell>
-                      <TableCell>{order.pharmacie?.nom || "-"}</TableCell>
-                      <TableCell>{order.grossiste?.nom || "-"}</TableCell>
-                      <TableCell>
+                      <TableCell data-testid={`text-order-pharmacie-${order.id}`}>{order.pharmacie?.nom || "-"}</TableCell>
+                      <TableCell data-testid={`text-order-grossiste-${order.id}`}>{order.grossiste?.nom || "-"}</TableCell>
+                      <TableCell data-testid={`text-order-status-${order.id}`}>
                         <StatusBadge status={order.status} type="order" />
                       </TableCell>
                       <TableCell>
@@ -198,6 +205,7 @@ export default function OrdersPage() {
                           <OrderActions 
                             order={order} 
                             userRole={user?.role || ""} 
+                            allGrossistes={allGrossistes}
                           />
                         </div>
                       </TableCell>
@@ -243,15 +251,14 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/orders", data);
-      return res;
+      return apiRequest("POST", "/api/orders", data);
     },
     onSuccess: () => {
-      toast({ title: "Commande créée", description: "La commande a été créée avec succès" });
+      toast({ title: "Commande cr\u00e9\u00e9e", description: "La commande a \u00e9t\u00e9 cr\u00e9\u00e9e en brouillon" });
       onSuccess();
     },
-    onError: () => {
-      toast({ title: "Erreur", description: "Impossible de créer la commande", variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "Erreur", description: error.message || "Impossible de cr\u00e9er la commande", variant: "destructive" });
     }
   });
 
@@ -293,7 +300,7 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
       <DialogHeader>
         <DialogTitle>Nouvelle commande</DialogTitle>
         <DialogDescription>
-          Créez une nouvelle commande pour une pharmacie
+          Cr\u00e9ez une nouvelle commande pour une pharmacie
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -302,7 +309,7 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
             <label className="text-sm font-medium">Pharmacie</label>
             <Select value={pharmacieId} onValueChange={setPharmacieId}>
               <SelectTrigger data-testid="select-pharmacie">
-                <SelectValue placeholder="Sélectionner..." />
+                <SelectValue placeholder="S\u00e9lectionner..." />
               </SelectTrigger>
               <SelectContent>
                 {pharmacies.map((p) => (
@@ -315,7 +322,7 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
             <label className="text-sm font-medium">Grossiste</label>
             <Select value={grossisteId} onValueChange={setGrossisteId}>
               <SelectTrigger data-testid="select-grossiste">
-                <SelectValue placeholder="Sélectionner..." />
+                <SelectValue placeholder="S\u00e9lectionner..." />
               </SelectTrigger>
               <SelectContent>
                 {grossistes.map((g) => (
@@ -327,7 +334,7 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <label className="text-sm font-medium">Produits</label>
             <Button type="button" variant="outline" size="sm" onClick={addLine}>
               <Plus className="w-4 h-4 mr-1" /> Ajouter
@@ -379,14 +386,14 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
           <Textarea
             value={commentaire}
             onChange={(e) => setCommentaire(e.target.value)}
-            placeholder="Instructions spéciales..."
+            placeholder="Instructions sp\u00e9ciales..."
             data-testid="textarea-commentaire"
           />
         </div>
 
         <DialogFooter>
           <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-order">
-            {createMutation.isPending ? "Création..." : "Créer la commande"}
+            {createMutation.isPending ? "Cr\u00e9ation..." : "Cr\u00e9er la commande"}
           </Button>
         </DialogFooter>
       </form>
@@ -397,21 +404,53 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
 interface OrderActionsProps {
   order: OrderWithRelations;
   userRole: string;
+  allGrossistes: Entity[];
 }
 
-function OrderActions({ order, userRole }: OrderActionsProps) {
+function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
   const { toast } = useToast();
+  const [showRefuseDialog, setShowRefuseDialog] = useState(false);
+  const [showReassignDialog, setShowReassignDialog] = useState(false);
+  const [refuseComment, setRefuseComment] = useState("");
+  const [newGrossisteId, setNewGrossisteId] = useState("");
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ status, commentaire }: { status: string; commentaire?: string }) => {
       return apiRequest("PATCH", `/api/orders/${order.id}/status`, { status, commentaire });
     },
     onSuccess: () => {
-      toast({ title: "Statut mis à jour" });
+      toast({ title: "Statut mis \u00e0 jour" });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
     },
-    onError: () => {
-      toast({ title: "Erreur", description: "Impossible de mettre à jour le statut", variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "Erreur", description: error.message || "Impossible de mettre \u00e0 jour le statut", variant: "destructive" });
+    }
+  });
+
+  const reassignMutation = useMutation({
+    mutationFn: async (grossisteId: string) => {
+      return apiRequest("PATCH", `/api/orders/${order.id}/reassign`, { grossisteId });
+    },
+    onSuccess: () => {
+      toast({ title: "Commande r\u00e9attribu\u00e9e" });
+      setShowReassignDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erreur", description: error.message || "Impossible de r\u00e9attribuer", variant: "destructive" });
+    }
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("PATCH", `/api/orders/${order.id}/cancel`, {});
+    },
+    onSuccess: () => {
+      toast({ title: "Commande annul\u00e9e" });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erreur", description: error.message || "Impossible d'annuler", variant: "destructive" });
     }
   });
 
@@ -419,42 +458,184 @@ function OrderActions({ order, userRole }: OrderActionsProps) {
     updateStatusMutation.mutate({ status: newStatus });
   };
 
-  if (order.status === "brouillon" && (userRole === "delegue" || userRole === "admin")) {
-    return (
-      <Button
-        size="sm"
-        onClick={() => handleStatusChange("envoyee")}
-        disabled={updateStatusMutation.isPending}
-        data-testid={`button-send-order-${order.id}`}
-      >
-        <Send className="w-4 h-4 mr-1" />
-        Envoyer
-      </Button>
-    );
-  }
+  const handleRefuse = () => {
+    if (!refuseComment.trim()) {
+      toast({ title: "Erreur", description: "Le motif de refus est obligatoire", variant: "destructive" });
+      return;
+    }
+    updateStatusMutation.mutate({ status: "refusee", commentaire: refuseComment });
+    setShowRefuseDialog(false);
+    setRefuseComment("");
+  };
 
-  if (order.status === "envoyee" && (userRole === "grossiste" || userRole === "admin")) {
+  const handlePharmacieRefuse = () => {
+    updateStatusMutation.mutate({ status: "brouillon", commentaire: "Refus\u00e9e par la pharmacie" });
+  };
+
+  // Brouillon → Validee delegue (delegue only)
+  if (order.status === "brouillon" && (userRole === "delegue" || userRole === "admin")) {
     return (
       <div className="flex gap-1">
         <Button
           size="sm"
-          variant="default"
-          onClick={() => handleStatusChange("acceptee")}
+          onClick={() => handleStatusChange("validee_delegue")}
           disabled={updateStatusMutation.isPending}
-          data-testid={`button-accept-order-${order.id}`}
+          data-testid={`button-validate-delegue-${order.id}`}
         >
-          <Check className="w-4 h-4" />
+          <CheckCircle2 className="w-4 h-4 mr-1" />
+          Valider
         </Button>
         <Button
           size="sm"
           variant="destructive"
-          onClick={() => handleStatusChange("refusee")}
+          onClick={() => cancelMutation.mutate()}
+          disabled={cancelMutation.isPending}
+          data-testid={`button-cancel-order-${order.id}`}
+        >
+          <Ban className="w-4 h-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  // Validee delegue → Validee pharmacie OR refuse back to brouillon (pharmacie only)
+  if (order.status === "validee_delegue" && (userRole === "pharmacie" || userRole === "admin")) {
+    return (
+      <div className="flex gap-1">
+        <Button
+          size="sm"
+          onClick={() => handleStatusChange("validee_pharmacie")}
           disabled={updateStatusMutation.isPending}
-          data-testid={`button-refuse-order-${order.id}`}
+          data-testid={`button-validate-pharmacie-${order.id}`}
+        >
+          <CheckCircle2 className="w-4 h-4 mr-1" />
+          Valider
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={handlePharmacieRefuse}
+          disabled={updateStatusMutation.isPending}
+          data-testid={`button-refuse-pharmacie-${order.id}`}
         >
           <X className="w-4 h-4" />
         </Button>
       </div>
+    );
+  }
+
+  // Envoyee → acceptee/refusee (grossiste only)
+  if (order.status === "envoyee" && (userRole === "grossiste" || userRole === "admin")) {
+    return (
+      <>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="default"
+            onClick={() => handleStatusChange("acceptee")}
+            disabled={updateStatusMutation.isPending}
+            data-testid={`button-accept-order-${order.id}`}
+          >
+            <Check className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => setShowRefuseDialog(true)}
+            disabled={updateStatusMutation.isPending}
+            data-testid={`button-refuse-order-${order.id}`}
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+
+        <Dialog open={showRefuseDialog} onOpenChange={setShowRefuseDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Refuser la commande</DialogTitle>
+              <DialogDescription>Le motif de refus est obligatoire</DialogDescription>
+            </DialogHeader>
+            <Textarea
+              value={refuseComment}
+              onChange={(e) => setRefuseComment(e.target.value)}
+              placeholder="Motif de refus..."
+              data-testid="textarea-refuse-motif"
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowRefuseDialog(false)}>Annuler</Button>
+              <Button variant="destructive" onClick={handleRefuse} disabled={updateStatusMutation.isPending} data-testid="button-confirm-refuse">
+                Confirmer le refus
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  // Refusee → reassign or cancel (delegue only)
+  if (order.status === "refusee" && (userRole === "delegue" || userRole === "admin")) {
+    const availableGrossistes = allGrossistes.filter(g => g.id !== order.grossisteId && !g.blocked);
+    return (
+      <>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            onClick={() => setShowReassignDialog(true)}
+            disabled={reassignMutation.isPending}
+            data-testid={`button-reassign-order-${order.id}`}
+          >
+            <RefreshCw className="w-4 h-4 mr-1" />
+            R\u00e9attribuer
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => cancelMutation.mutate()}
+            disabled={cancelMutation.isPending}
+            data-testid={`button-cancel-refused-${order.id}`}
+          >
+            <Ban className="w-4 h-4" />
+          </Button>
+        </div>
+
+        <Dialog open={showReassignDialog} onOpenChange={setShowReassignDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>R\u00e9attribuer la commande</DialogTitle>
+              <DialogDescription>
+                S\u00e9lectionnez un autre grossiste pour cette commande
+              </DialogDescription>
+            </DialogHeader>
+            {order.motifRefus && (
+              <div className="p-3 rounded-md bg-destructive/10 text-sm">
+                <p className="font-medium text-destructive">Motif du refus :</p>
+                <p className="text-foreground mt-1">{order.motifRefus}</p>
+              </div>
+            )}
+            <Select value={newGrossisteId} onValueChange={setNewGrossisteId}>
+              <SelectTrigger data-testid="select-new-grossiste">
+                <SelectValue placeholder="Choisir un grossiste..." />
+              </SelectTrigger>
+              <SelectContent>
+                {availableGrossistes.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>{g.nom}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowReassignDialog(false)}>Annuler</Button>
+              <Button 
+                onClick={() => newGrossisteId && reassignMutation.mutate(newGrossisteId)} 
+                disabled={!newGrossisteId || reassignMutation.isPending}
+                data-testid="button-confirm-reassign"
+              >
+                R\u00e9attribuer
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
@@ -467,7 +648,7 @@ function OrderActions({ order, userRole }: OrderActionsProps) {
         data-testid={`button-prepare-order-${order.id}`}
       >
         <Package className="w-4 h-4 mr-1" />
-        Préparer
+        Pr\u00e9parer
       </Button>
     );
   }
@@ -486,6 +667,7 @@ function OrderActions({ order, userRole }: OrderActionsProps) {
     );
   }
 
+  // Livree → cloturee OR litige (pharmacie only - litige ONLY after delivery)
   if (order.status === "livree" && (userRole === "pharmacie" || userRole === "admin")) {
     return (
       <div className="flex gap-1">
@@ -512,21 +694,6 @@ function OrderActions({ order, userRole }: OrderActionsProps) {
     );
   }
 
-  if (userRole === "pharmacie" && !["cloturee", "litige"].includes(order.status)) {
-    return (
-      <Button
-        size="sm"
-        variant="destructive"
-        onClick={() => handleStatusChange("litige")}
-        disabled={updateStatusMutation.isPending}
-        data-testid={`button-dispute-order-${order.id}`}
-      >
-        <AlertTriangle className="w-4 h-4 mr-1" />
-        Litige
-      </Button>
-    );
-  }
-
   return null;
 }
 
@@ -541,19 +708,60 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
     queryKey: ["/api/orders", order.id, "history"]
   });
 
+  const statusSteps = [
+    { key: "brouillon", label: "Brouillon" },
+    { key: "validee_delegue", label: "Valid\u00e9e d\u00e9l\u00e9gu\u00e9" },
+    { key: "validee_pharmacie", label: "Valid\u00e9e pharmacie" },
+    { key: "envoyee", label: "Envoy\u00e9e" },
+    { key: "acceptee", label: "Accept\u00e9e" },
+    { key: "en_preparation", label: "En pr\u00e9paration" },
+    { key: "livree", label: "Livr\u00e9e" },
+    { key: "cloturee", label: "Cl\u00f4tur\u00e9e" }
+  ];
+
+  const currentStepIndex = statusSteps.findIndex(s => s.key === order.status);
+
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
+        <DialogTitle className="flex items-center gap-2 flex-wrap">
           Commande {order.id.slice(0, 8)}
           <StatusBadge status={order.status} type="order" />
         </DialogTitle>
         <DialogDescription>
-          Créée le {format(new Date(order.createdAt), "dd MMMM yyyy 'à' HH:mm", { locale: fr })}
+          Cr\u00e9\u00e9e le {format(new Date(order.createdAt), "dd MMMM yyyy '\u00e0' HH:mm", { locale: fr })}
         </DialogDescription>
       </DialogHeader>
 
       <div className="space-y-6 mt-4">
+        {!["refusee", "annulee", "litige"].includes(order.status) && (
+          <div className="flex items-center gap-1 overflow-x-auto pb-2">
+            {statusSteps.map((step, index) => {
+              const isCompleted = index < currentStepIndex;
+              const isCurrent = index === currentStepIndex;
+              return (
+                <div key={step.key} className="flex items-center gap-1 min-w-0">
+                  <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium shrink-0 ${
+                    isCompleted ? "bg-chart-4 text-white" :
+                    isCurrent ? "bg-primary text-primary-foreground" :
+                    "bg-muted text-muted-foreground"
+                  }`}>
+                    {isCompleted ? <Check className="w-3 h-3" /> : index + 1}
+                  </div>
+                  <span className={`text-xs whitespace-nowrap ${
+                    isCurrent ? "font-medium text-foreground" : "text-muted-foreground"
+                  }`}>
+                    {step.label}
+                  </span>
+                  {index < statusSteps.length - 1 && (
+                    <div className={`w-4 h-0.5 shrink-0 ${isCompleted ? "bg-chart-4" : "bg-muted"}`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <Card>
             <CardHeader className="pb-2">
@@ -575,6 +783,17 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
           </Card>
         </div>
 
+        {order.motifRefus && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-destructive">Motif de refus</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm">{order.motifRefus}</p>
+            </CardContent>
+          </Card>
+        )}
+
         {order.commentaire && (
           <Card>
             <CardHeader className="pb-2">
@@ -595,8 +814,8 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Produit</TableHead>
-                  <TableHead className="text-right">Qté commandée</TableHead>
-                  <TableHead className="text-right">Qté acceptée</TableHead>
+                  <TableHead className="text-right">Qt\u00e9 command\u00e9e</TableHead>
+                  <TableHead className="text-right">Qt\u00e9 accept\u00e9e</TableHead>
                   <TableHead>Statut</TableHead>
                 </TableRow>
               </TableHeader>
@@ -623,6 +842,38 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Dates cl\u00e9s</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <p className="text-muted-foreground">Cr\u00e9ation</p>
+                <p className="font-medium">{format(new Date(order.createdAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+              </div>
+              {order.validatedByDelegueAt && (
+                <div>
+                  <p className="text-muted-foreground">Validation d\u00e9l\u00e9gu\u00e9</p>
+                  <p className="font-medium">{format(new Date(order.validatedByDelegueAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+                </div>
+              )}
+              {order.validatedByPharmacieAt && (
+                <div>
+                  <p className="text-muted-foreground">Validation pharmacie</p>
+                  <p className="font-medium">{format(new Date(order.validatedByPharmacieAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+                </div>
+              )}
+              {order.sentAt && (
+                <div>
+                  <p className="text-muted-foreground">Envoi au grossiste</p>
+                  <p className="font-medium">{format(new Date(order.sentAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {history && history.length > 0 && (
           <Card>
             <CardHeader className="pb-2">
@@ -630,18 +881,23 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {history.map((h: any, i: number) => (
-                  <div key={i} className="flex items-start gap-3 text-sm">
-                    <div className="w-2 h-2 rounded-full bg-primary mt-2" />
-                    <div className="flex-1">
-                      <p>
-                        <span className="font-medium">{h.ancienStatus || "Création"}</span>
-                        {" → "}
-                        <span className="font-medium">{h.nouveauStatus}</span>
+                {history.map((entry: any) => (
+                  <div key={entry.id} className="flex items-start gap-3 text-sm">
+                    <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-foreground">
+                        {entry.ancienStatus && (
+                          <span className="text-muted-foreground">{entry.ancienStatus}</span>
+                        )}
+                        {entry.ancienStatus && " \u2192 "}
+                        <span className="font-medium">{entry.nouveauStatus}</span>
                       </p>
-                      <p className="text-muted-foreground">
-                        {format(new Date(h.createdAt), "dd/MM/yyyy HH:mm")}
-                        {h.commentaire && ` - ${h.commentaire}`}
+                      {entry.commentaire && (
+                        <p className="text-muted-foreground text-xs mt-0.5">{entry.commentaire}</p>
+                      )}
+                      <p className="text-muted-foreground text-xs">
+                        {format(new Date(entry.createdAt), "dd/MM/yyyy HH:mm", { locale: fr })}
+                        {entry.role && ` - ${entry.role}`}
                       </p>
                     </div>
                   </div>

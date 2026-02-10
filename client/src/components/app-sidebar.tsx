@@ -24,7 +24,10 @@ import {
   LogOut,
   Pill,
   History,
-  BarChart3
+  BarChart3,
+  Tag,
+  Megaphone,
+  MessageSquare
 } from "lucide-react";
 
 export function AppSidebar() {
@@ -40,9 +43,12 @@ export function AppSidebar() {
       return [
         ...baseItems,
         { title: "Utilisateurs", url: "/users", icon: Users },
-        { title: "Entités", url: "/entities", icon: Building2 },
+        { title: "Entit\u00e9s", url: "/entities", icon: Building2 },
         { title: "Produits", url: "/products", icon: Package },
         { title: "Commandes", url: "/orders", icon: ShoppingCart },
+        { title: "Offres commerciales", url: "/offers", icon: Tag },
+        { title: "Actions commerciales", url: "/actions", icon: Megaphone },
+        { title: "Communications", url: "/communications", icon: MessageSquare },
         { title: "Historique", url: "/history", icon: History },
         { title: "Statistiques", url: "/stats", icon: BarChart3 }
       ];
@@ -53,6 +59,9 @@ export function AppSidebar() {
         ...baseItems,
         { title: "Produits", url: "/products", icon: Package },
         { title: "Commandes", url: "/orders", icon: ShoppingCart },
+        { title: "Offres commerciales", url: "/offers", icon: Tag },
+        { title: "Actions commerciales", url: "/actions", icon: Megaphone },
+        { title: "Communications", url: "/communications", icon: MessageSquare },
         { title: "Statistiques", url: "/stats", icon: BarChart3 }
       ];
     }
@@ -61,21 +70,26 @@ export function AppSidebar() {
       return [
         ...baseItems,
         { title: "Mes commandes", url: "/orders", icon: ShoppingCart },
-        { title: "Produits", url: "/products", icon: Package }
+        { title: "Produits", url: "/products", icon: Package },
+        { title: "Offres commerciales", url: "/offers", icon: Tag },
+        { title: "Actions commerciales", url: "/actions", icon: Megaphone },
+        { title: "Communications", url: "/communications", icon: MessageSquare }
       ];
     }
 
     if (user?.role === "grossiste") {
       return [
         ...baseItems,
-        { title: "Commandes à traiter", url: "/orders", icon: ShoppingCart }
+        { title: "Commandes \u00e0 traiter", url: "/orders", icon: ShoppingCart },
+        { title: "Communications", url: "/communications", icon: MessageSquare }
       ];
     }
 
     if (user?.role === "pharmacie") {
       return [
         ...baseItems,
-        { title: "Mes commandes", url: "/orders", icon: ShoppingCart }
+        { title: "Mes commandes", url: "/orders", icon: ShoppingCart },
+        { title: "Communications", url: "/communications", icon: MessageSquare }
       ];
     }
 
@@ -88,7 +102,7 @@ export function AppSidebar() {
     const labels: Record<string, string> = {
       admin: "Administrateur",
       laboratoire: "Laboratoire",
-      delegue: "Délégué",
+      delegue: "D\u00e9l\u00e9gu\u00e9",
       grossiste: "Grossiste",
       pharmacie: "Pharmacie"
     };
@@ -183,7 +197,7 @@ export function AppSidebar() {
           data-testid="button-logout"
         >
           <LogOut className="w-4 h-4 mr-2" />
-          Déconnexion
+          D\u00e9connexion
         </Button>
       </SidebarFooter>
     </Sidebar>
