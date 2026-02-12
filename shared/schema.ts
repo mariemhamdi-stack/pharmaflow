@@ -60,6 +60,14 @@ export const users = pgTable("users", {
   lastLogin: timestamp("last_login")
 });
 
+// Delegate-Laboratory association (many-to-many)
+export const delegueLaboratoires = pgTable("delegue_laboratoires", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  delegueId: varchar("delegue_id").references(() => users.id).notNull(),
+  laboratoireId: varchar("laboratoire_id").references(() => entities.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
 // Products table
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -188,6 +196,7 @@ export const communications = pgTable("communications", {
 // Insert schemas
 export const insertEntitySchema = createInsertSchema(entities).omit({ id: true, createdAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, lastLogin: true });
+export const insertDelegueLaboratoireSchema = createInsertSchema(delegueLaboratoires).omit({ id: true, createdAt: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
 export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, sentAt: true, validatedByDelegueAt: true, validatedByPharmacieAt: true });
 export const insertOrderLineSchema = createInsertSchema(orderLines).omit({ id: true });
@@ -203,6 +212,9 @@ export type InsertEntity = z.infer<typeof insertEntitySchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type DelegueLaboratoire = typeof delegueLaboratoires.$inferSelect;
+export type InsertDelegueLaboratoire = z.infer<typeof insertDelegueLaboratoireSchema>;
 
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;

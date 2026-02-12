@@ -170,6 +170,40 @@ export async function registerRoutes(
   });
 
   // ============================================
+  // DELEGATE-LABORATORY ASSOCIATIONS
+  // ============================================
+
+  app.get("/api/users/:id/laboratoires", requireRole("admin", "laboratoire"), async (req, res) => {
+    const id = req.params.id as string;
+    const laboIds = await storage.getDelegueLaboratoireIds(id);
+    res.json(laboIds);
+  });
+
+  app.put("/api/users/:id/laboratoires", requireRole("admin", "laboratoire"), async (req, res) => {
+    try {
+      const currentUser = (req as any).user;
+      const id = req.params.id as string;
+      const { laboratoireIds } = req.body;
+      
+      if (!Array.isArray(laboratoireIds)) {
+        return res.status(400).json({ error: "laboratoireIds doit être un tableau" });
+      }
+
+      if (currentUser.role === "laboratoire") {
+        const targetUser = await storage.getUser(id);
+        if (!targetUser || targetUser.role !== "delegue") {
+          return res.status(403).json({ error: "Utilisateur non trouvé ou n'est pas un délégué" });
+        }
+      }
+
+      await storage.setDelegueLaboratoires(id, laboratoireIds);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(400).json({ error: "Erreur lors de la mise à jour" });
+    }
+  });
+
+  // ============================================
   // ENTITIES ROUTES
   // ============================================
   
@@ -252,15 +286,25 @@ export async function registerRoutes(
   
   app.get("/api/products", requireAuth, async (req, res) => {
     const user = await storage.getUser(req.session.userId!);
-    let products;
+    let allProducts: any[] = [];
     
-    if (user?.role === "delegue" || user?.role === "laboratoire") {
-      products = await storage.getProducts(user.entityId || undefined);
+    if (user?.role === "laboratoire") {
+      allProducts = await storage.getProducts(user.entityId || undefined);
+    } else if (user?.role === "delegue") {
+      const laboIds = await storage.getDelegueLaboratoireIds(user.id);
+      if (laboIds.length > 0) {
+        for (const laboId of laboIds) {
+          const laboProducts = await storage.getProducts(laboId);
+          allProducts.push(...laboProducts);
+        }
+      } else if (user.entityId) {
+        allProducts = await storage.getProducts(user.entityId);
+      }
     } else {
-      products = await storage.getProducts();
+      allProducts = await storage.getProducts();
     }
     
-    res.json(products);
+    res.json(allProducts);
   });
 
   app.post("/api/products", requireRole("admin", "laboratoire"), async (req, res) => {

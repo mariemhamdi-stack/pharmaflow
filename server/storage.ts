@@ -1,6 +1,6 @@
 import { 
   users, entities, products, orders, orderLines, orderHistory, notifications,
-  commercialOffers, commercialActions, communications,
+  commercialOffers, commercialActions, communications, delegueLaboratoires,
   type User, type InsertUser,
   type Entity, type InsertEntity,
   type Product, type InsertProduct,
@@ -11,6 +11,7 @@ import {
   type CommercialOffer, type InsertCommercialOffer,
   type CommercialAction, type InsertCommercialAction,
   type Communication, type InsertCommunication,
+  type DelegueLaboratoire, type InsertDelegueLaboratoire,
   type OrderWithRelations
 } from "@shared/schema";
 import { db } from "./db";
@@ -82,6 +83,11 @@ export interface IStorage {
   createCommunication(comm: InsertCommunication): Promise<Communication>;
   updateCommunication(id: string, data: Partial<InsertCommunication>): Promise<Communication | undefined>;
   incrementCommunicationViews(id: string): Promise<void>;
+  
+  // Delegate-Laboratory associations
+  getDelegueLaboratoires(delegueId: string): Promise<DelegueLaboratoire[]>;
+  getDelegueLaboratoireIds(delegueId: string): Promise<string[]>;
+  setDelegueLaboratoires(delegueId: string, laboratoireIds: string[]): Promise<void>;
   
   // Stats
   getDashboardStats(userId: string, role: string, entityId?: string | null): Promise<any>;
@@ -550,6 +556,26 @@ export class DatabaseStorage implements IStorage {
       ordersByGrossiste,
       ordersByMonth
     };
+  }
+
+  async getDelegueLaboratoires(delegueId: string): Promise<DelegueLaboratoire[]> {
+    return await db.select().from(delegueLaboratoires).where(eq(delegueLaboratoires.delegueId, delegueId));
+  }
+
+  async getDelegueLaboratoireIds(delegueId: string): Promise<string[]> {
+    const rows = await db.select({ laboratoireId: delegueLaboratoires.laboratoireId })
+      .from(delegueLaboratoires)
+      .where(eq(delegueLaboratoires.delegueId, delegueId));
+    return rows.map(r => r.laboratoireId);
+  }
+
+  async setDelegueLaboratoires(delegueId: string, laboratoireIds: string[]): Promise<void> {
+    await db.delete(delegueLaboratoires).where(eq(delegueLaboratoires.delegueId, delegueId));
+    if (laboratoireIds.length > 0) {
+      await db.insert(delegueLaboratoires).values(
+        laboratoireIds.map(laboId => ({ delegueId, laboratoireId: laboId }))
+      );
+    }
   }
 }
 

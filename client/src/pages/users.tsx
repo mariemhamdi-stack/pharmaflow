@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { User, Entity } from "@shared/schema";
@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/status-badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Users as UsersIcon } from "lucide-react";
+import { Plus, Search, Edit, Users as UsersIcon, X } from "lucide-react";
 
 export default function UsersPage() {
   const { toast } = useToast();
@@ -219,13 +219,33 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
   const [role, setRole] = useState<string>(user?.role || "delegue");
   const [entityId, setEntityId] = useState(user?.entityId || "");
   const [status, setStatus] = useState<string>(user?.status || "actif");
+  const [selectedLaboIds, setSelectedLaboIds] = useState<string[]>([]);
+  const [laboSearch, setLaboSearch] = useState("");
+
+  const { data: existingLaboIds } = useQuery<string[]>({
+    queryKey: ["/api/users", user?.id, "laboratoires"],
+    enabled: !!user && user.role === "delegue",
+  });
+
+  useEffect(() => {
+    if (existingLaboIds && existingLaboIds.length > 0 && selectedLaboIds.length === 0) {
+      setSelectedLaboIds(existingLaboIds);
+    }
+  }, [existingLaboIds]);
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
+      let userId = user?.id;
       if (user) {
-        return apiRequest("PATCH", `/api/users/${user.id}`, data);
+        await apiRequest("PATCH", `/api/users/${user.id}`, data);
+      } else {
+        const res = await apiRequest("POST", "/api/users", data);
+        const newUser = await res.json();
+        userId = newUser.id;
       }
-      return apiRequest("POST", "/api/users", data);
+      if (role === "delegue" && userId) {
+        await apiRequest("PUT", `/api/users/${userId}/laboratoires`, { laboratoireIds: selectedLaboIds });
+      }
     },
     onSuccess: () => {
       toast({ 
@@ -248,6 +268,17 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
     const data: any = { nom, prenom, email, telephone, role, entityId: entityId || null, status };
     if (password) data.password = password;
     mutation.mutate(data);
+  };
+
+  const labos = entities.filter(e => e.type === "laboratoire");
+  const filteredLabos = labos.filter(l => 
+    l.nom.toLowerCase().includes(laboSearch.toLowerCase()) && !selectedLaboIds.includes(l.id)
+  );
+
+  const toggleLabo = (laboId: string) => {
+    setSelectedLaboIds(prev => 
+      prev.includes(laboId) ? prev.filter(id => id !== laboId) : [...prev, laboId]
+    );
   };
 
   const getEntitiesForRole = () => {
@@ -359,7 +390,49 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
           </div>
         </div>
 
-        {role !== "admin" && filteredEntities.length > 0 && (
+        {role === "delegue" && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Laboratoires associés</label>
+            <Input
+              value={laboSearch}
+              onChange={(e) => setLaboSearch(e.target.value)}
+              placeholder="Rechercher un laboratoire..."
+              data-testid="input-labo-search"
+            />
+            {selectedLaboIds.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {selectedLaboIds.map(id => {
+                  const labo = labos.find(l => l.id === id);
+                  return labo ? (
+                    <span key={id} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-xs">
+                      {labo.nom}
+                      <button type="button" onClick={() => toggleLabo(id)} className="hover-elevate rounded-full" data-testid={`button-remove-labo-${id}`}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ) : null;
+                })}
+              </div>
+            )}
+            {laboSearch && filteredLabos.length > 0 && (
+              <div className="max-h-32 overflow-auto border border-border rounded-md">
+                {filteredLabos.slice(0, 20).map(l => (
+                  <button
+                    key={l.id}
+                    type="button"
+                    className="w-full text-left px-3 py-1.5 text-sm hover-elevate"
+                    onClick={() => { toggleLabo(l.id); setLaboSearch(""); }}
+                    data-testid={`button-add-labo-${l.id}`}
+                  >
+                    {l.nom}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {role !== "admin" && role !== "delegue" && filteredEntities.length > 0 && (
           <div className="space-y-2">
             <label className="text-sm font-medium">Entité associée</label>
             <Select value={entityId} onValueChange={setEntityId}>
