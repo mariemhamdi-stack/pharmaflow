@@ -46,17 +46,12 @@ export default function OrdersPage() {
     queryKey: ["/api/orders"]
   });
 
-  const { data: entities } = useQuery<Entity[]>({
-    queryKey: ["/api/entities"]
+  const { data: allGrossistesList } = useQuery<Entity[]>({
+    queryKey: ["/api/entities"],
+    select: (data: Entity[]) => data.filter(e => e.type === "grossiste"),
   });
 
-  const { data: products } = useQuery<Product[]>({
-    queryKey: ["/api/products"]
-  });
-
-  const pharmacies = entities?.filter(e => e.type === "pharmacie" && !e.blocked) || [];
-  const grossistes = entities?.filter(e => e.type === "grossiste" && !e.blocked) || [];
-  const allGrossistes = entities?.filter(e => e.type === "grossiste") || [];
+  const allGrossistes = allGrossistesList || [];
 
   const filteredOrders = orders?.filter(order => {
     const matchesSearch = 
@@ -94,9 +89,6 @@ export default function OrdersPage() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <CreateOrderForm 
-                pharmacies={pharmacies}
-                grossistes={grossistes}
-                products={products || []}
                 onSuccess={() => {
                   setIsCreateOpen(false);
                   queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
@@ -233,20 +225,116 @@ export default function OrdersPage() {
   );
 }
 
+interface SearchableSelectProps {
+  value: string;
+  onSelect: (id: string, label: string) => void;
+  searchUrl: string;
+  placeholder: string;
+  displayValue: string;
+  testId: string;
+  renderItem?: (item: any) => string;
+}
+
+function SearchableSelect({ value, onSelect, searchUrl, placeholder, displayValue, testId, renderItem }: SearchableSelectProps) {
+  const [search, setSearch] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const timerRef = useState<ReturnType<typeof setTimeout> | null>(null);
+
+  const doSearch = async (q: string) => {
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${searchUrl}${encodeURIComponent(q)}`, { credentials: "include" });
+      const data = await res.json();
+      setResults(data);
+    } catch {
+      setResults([]);
+    }
+    setLoading(false);
+  };
+
+  const handleChange = (val: string) => {
+    setSearch(val);
+    if (timerRef[0]) clearTimeout(timerRef[0]);
+    timerRef[0] = setTimeout(() => doSearch(val), 300);
+  };
+
+  return (
+    <div className="relative">
+      {value && displayValue ? (
+        <div className="flex items-center gap-2">
+          <span className="flex-1 text-sm truncate px-3 py-2 border border-border rounded-md bg-muted" data-testid={`${testId}-display`}>
+            {displayValue}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => { onSelect("", ""); setSearch(""); setResults([]); }}
+            data-testid={`${testId}-clear`}
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      ) : (
+        <>
+          <Input
+            value={search}
+            onChange={(e) => { handleChange(e.target.value); setIsOpen(true); }}
+            onFocus={() => setIsOpen(true)}
+            placeholder={placeholder}
+            data-testid={testId}
+          />
+          {isOpen && search.length >= 2 && (
+            <div className="absolute z-50 mt-1 w-full max-h-48 overflow-auto border border-border rounded-md bg-popover shadow-md">
+              {loading ? (
+                <div className="px-3 py-2 text-sm text-muted-foreground">Recherche...</div>
+              ) : results.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-muted-foreground">Aucun résultat</div>
+              ) : (
+                results.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-sm hover-elevate"
+                    onClick={() => {
+                      const label = renderItem ? renderItem(item) : item.nom;
+                      onSelect(item.id, label);
+                      setSearch("");
+                      setIsOpen(false);
+                    }}
+                    data-testid={`${testId}-option-${item.id}`}
+                  >
+                    {renderItem ? renderItem(item) : item.nom}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 interface CreateOrderFormProps {
-  pharmacies: Entity[];
-  grossistes: Entity[];
-  products: Product[];
   onSuccess: () => void;
 }
 
-function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: CreateOrderFormProps) {
+function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
   const { toast } = useToast();
   const [pharmacieId, setPharmacieId] = useState("");
+  const [pharmacieNom, setPharmacieNom] = useState("");
   const [grossisteId, setGrossisteId] = useState("");
+  const [grossisteNom, setGrossisteNom] = useState("");
   const [commentaire, setCommentaire] = useState("");
-  const [lines, setLines] = useState<{ productId: string; quantite: number }[]>([
-    { productId: "", quantite: 1 }
+  const [lines, setLines] = useState<{ productId: string; productNom: string; quantite: number }[]>([
+    { productId: "", productNom: "", quantite: 1 }
   ]);
 
   const createMutation = useMutation({
@@ -263,16 +351,22 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
   });
 
   const addLine = () => {
-    setLines([...lines, { productId: "", quantite: 1 }]);
+    setLines([...lines, { productId: "", productNom: "", quantite: 1 }]);
   };
 
   const removeLine = (index: number) => {
     setLines(lines.filter((_, i) => i !== index));
   };
 
-  const updateLine = (index: number, field: string, value: string | number) => {
+  const updateLineProduct = (index: number, id: string, nom: string) => {
     const newLines = [...lines];
-    newLines[index] = { ...newLines[index], [field]: value };
+    newLines[index] = { ...newLines[index], productId: id, productNom: nom };
+    setLines(newLines);
+  };
+
+  const updateLineQuantite = (index: number, quantite: number) => {
+    const newLines = [...lines];
+    newLines[index] = { ...newLines[index], quantite };
     setLines(newLines);
   };
 
@@ -293,8 +387,6 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
     });
   };
 
-  const activeProducts = products.filter(p => p.status === "actif");
-
   return (
     <>
       <DialogHeader>
@@ -307,62 +399,54 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Pharmacie</label>
-            <Select value={pharmacieId} onValueChange={setPharmacieId}>
-              <SelectTrigger data-testid="select-pharmacie">
-                <SelectValue placeholder="Sélectionner..." />
-              </SelectTrigger>
-              <SelectContent>
-                {pharmacies.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.nom}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={pharmacieId}
+              displayValue={pharmacieNom}
+              onSelect={(id, label) => { setPharmacieId(id); setPharmacieNom(label); }}
+              searchUrl="/api/entities/search?type=pharmacie&q="
+              placeholder="Rechercher une pharmacie..."
+              testId="search-pharmacie"
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Grossiste</label>
-            <Select value={grossisteId} onValueChange={setGrossisteId}>
-              <SelectTrigger data-testid="select-grossiste">
-                <SelectValue placeholder="Sélectionner..." />
-              </SelectTrigger>
-              <SelectContent>
-                {grossistes.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>{g.nom}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={grossisteId}
+              displayValue={grossisteNom}
+              onSelect={(id, label) => { setGrossisteId(id); setGrossisteNom(label); }}
+              searchUrl="/api/entities/search?type=grossiste&q="
+              placeholder="Rechercher un grossiste..."
+              testId="search-grossiste"
+            />
           </div>
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <label className="text-sm font-medium">Produits</label>
-            <Button type="button" variant="outline" size="sm" onClick={addLine}>
+            <Button type="button" variant="outline" size="sm" onClick={addLine} data-testid="button-add-line">
               <Plus className="w-4 h-4 mr-1" /> Ajouter
             </Button>
           </div>
           <div className="space-y-2">
             {lines.map((line, index) => (
               <div key={index} className="flex items-center gap-2">
-                <Select 
-                  value={line.productId} 
-                  onValueChange={(v) => updateLine(index, "productId", v)}
-                >
-                  <SelectTrigger className="flex-1" data-testid={`select-product-${index}`}>
-                    <SelectValue placeholder="Produit..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeProducts.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.nom} - {p.forme} {p.dosage}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex-1">
+                  <SearchableSelect
+                    value={line.productId}
+                    displayValue={line.productNom}
+                    onSelect={(id, label) => updateLineProduct(index, id, label)}
+                    searchUrl="/api/products/search?q="
+                    placeholder="Rechercher un produit..."
+                    testId={`search-product-${index}`}
+                    renderItem={(p: Product) => `${p.nom} - ${p.forme || ""} ${p.dosage || ""}`}
+                  />
+                </div>
                 <Input
                   type="number"
                   min="1"
                   value={line.quantite}
-                  onChange={(e) => updateLine(index, "quantite", parseInt(e.target.value) || 1)}
+                  onChange={(e) => updateLineQuantite(index, parseInt(e.target.value) || 1)}
                   className="w-24"
                   data-testid={`input-quantity-${index}`}
                 />
@@ -372,6 +456,7 @@ function CreateOrderForm({ pharmacies, grossistes, products, onSuccess }: Create
                     variant="ghost" 
                     size="icon"
                     onClick={() => removeLine(index)}
+                    data-testid={`button-remove-line-${index}`}
                   >
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>

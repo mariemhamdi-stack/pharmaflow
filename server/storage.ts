@@ -15,7 +15,7 @@ import {
   type OrderWithRelations
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, gte, lte, or } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte, or, ilike, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import bcrypt from "bcrypt";
 
@@ -31,12 +31,14 @@ export interface IStorage {
   getEntity(id: string): Promise<Entity | undefined>;
   getEntities(): Promise<Entity[]>;
   getEntitiesByType(type: string): Promise<Entity[]>;
+  searchEntities(search: string, type?: string, limit?: number): Promise<Entity[]>;
   createEntity(entity: InsertEntity): Promise<Entity>;
   updateEntity(id: string, entity: Partial<InsertEntity>): Promise<Entity | undefined>;
   
   // Products
   getProduct(id: string): Promise<Product | undefined>;
   getProducts(laboratoireId?: string): Promise<Product[]>;
+  searchProducts(search: string, laboratoireIds?: string[], limit?: number): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
   
@@ -142,6 +144,14 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(entities).where(eq(entities.type, type)).orderBy(entities.nom);
   }
 
+  async searchEntities(search: string, type?: string, limit: number = 30): Promise<Entity[]> {
+    const conditions = [ilike(entities.nom, `%${search}%`), eq(entities.blocked, false)];
+    if (type) {
+      conditions.push(eq(entities.type, type));
+    }
+    return db.select().from(entities).where(and(...conditions)).orderBy(entities.nom).limit(limit);
+  }
+
   async createEntity(entity: InsertEntity): Promise<Entity> {
     const [created] = await db.insert(entities).values(entity).returning();
     return created;
@@ -163,6 +173,17 @@ export class DatabaseStorage implements IStorage {
       return db.select().from(products).where(eq(products.laboratoireId, laboratoireId)).orderBy(products.nom);
     }
     return db.select().from(products).orderBy(products.nom);
+  }
+
+  async searchProducts(search: string, laboratoireIds?: string[], limit: number = 30): Promise<Product[]> {
+    const conditions = [
+      ilike(products.nom, `%${search}%`),
+      eq(products.status, "actif"),
+    ];
+    if (laboratoireIds && laboratoireIds.length > 0) {
+      conditions.push(inArray(products.laboratoireId, laboratoireIds));
+    }
+    return db.select().from(products).where(and(...conditions)).orderBy(products.nom).limit(limit);
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {

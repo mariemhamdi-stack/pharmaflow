@@ -207,6 +207,16 @@ export async function registerRoutes(
   // ENTITIES ROUTES
   // ============================================
   
+  app.get("/api/entities/search", requireAuth, async (req, res) => {
+    const search = (req.query.q as string) || "";
+    const type = req.query.type as string | undefined;
+    if (search.length < 2) {
+      return res.json([]);
+    }
+    const results = await storage.searchEntities(search, type);
+    res.json(results);
+  });
+
   app.get("/api/entities", requireAuth, async (req, res) => {
     const entities = await storage.getEntities();
     res.json(entities);
@@ -284,6 +294,29 @@ export async function registerRoutes(
   // PRODUCTS ROUTES
   // ============================================
   
+  app.get("/api/products/search", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    const search = (req.query.q as string) || "";
+    if (search.length < 2) {
+      return res.json([]);
+    }
+    
+    let laboratoireIds: string[] | undefined;
+    if (user?.role === "laboratoire" && user.entityId) {
+      laboratoireIds = [user.entityId];
+    } else if (user?.role === "delegue") {
+      const laboIds = await storage.getDelegueLaboratoireIds(user.id);
+      if (laboIds.length > 0) {
+        laboratoireIds = laboIds;
+      } else if (user.entityId) {
+        laboratoireIds = [user.entityId];
+      }
+    }
+    
+    const results = await storage.searchProducts(search, laboratoireIds);
+    res.json(results);
+  });
+
   app.get("/api/products", requireAuth, async (req, res) => {
     const user = await storage.getUser(req.session.userId!);
     let allProducts: any[] = [];
