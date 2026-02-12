@@ -498,7 +498,7 @@ export async function registerRoutes(
       }
       
       let laboratoireId = user.entityId;
-      if (!laboratoireId && user.role === "admin") {
+      if (!laboratoireId) {
         const firstProduct = await storage.getProduct(lines[0].productId);
         laboratoireId = firstProduct?.laboratoireId;
       }
