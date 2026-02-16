@@ -92,6 +92,8 @@ export function AppSidebar() {
       return [
         ...baseItems,
         { title: "Mes commandes", url: "/orders", icon: ShoppingCart },
+        { title: "Offres commerciales", url: "/offers", icon: Tag },
+        { title: "Actions commerciales", url: "/actions", icon: Megaphone },
         { title: "Communications", url: "/communications", icon: MessageSquare }
       ];
     }
