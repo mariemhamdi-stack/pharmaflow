@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Megaphone, Plus, Calendar, Check, X, Loader2, ChevronsUpDown } from "lucide-react";
+import { Megaphone, Plus, Calendar, Check, X, Loader2, ChevronsUpDown, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -383,6 +383,8 @@ export default function ActionsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedAction, setSelectedAction] = useState<CommercialActionWithDates | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
 
   const { data: actions, isLoading } = useQuery<CommercialActionWithDates[]>({
     queryKey: ["/api/actions"],
@@ -496,7 +498,7 @@ export default function ActionsPage() {
                     <TableHead>Produit(s)</TableHead>
                     <TableHead>Date fin</TableHead>
                     <TableHead>Active</TableHead>
-                    {canToggle && <TableHead className="text-right">Actions</TableHead>}
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -531,29 +533,42 @@ export default function ActionsPage() {
                           </Badge>
                         )}
                       </TableCell>
-                      {canToggle && (
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant={action.active ? "default" : "outline"}
-                            onClick={() => toggleMutation.mutate({ id: action.id, active: !action.active })}
-                            disabled={toggleMutation.isPending}
-                            data-testid={`button-toggle-action-${action.id}`}
-                          >
-                            {action.active ? (
-                              <>
-                                <X className="w-4 h-4 mr-1" />
-                                Désactiver
-                              </>
-                            ) : (
-                              <>
-                                <Check className="w-4 h-4 mr-1" />
-                                Activer
-                              </>
+                      <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => {
+                                setSelectedAction(action);
+                                setIsViewOpen(true);
+                              }}
+                              data-testid={`button-view-action-${action.id}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            {canToggle && (
+                              <Button
+                                size="sm"
+                                variant={action.active ? "default" : "outline"}
+                                onClick={() => toggleMutation.mutate({ id: action.id, active: !action.active })}
+                                disabled={toggleMutation.isPending}
+                                data-testid={`button-toggle-action-${action.id}`}
+                              >
+                                {action.active ? (
+                                  <>
+                                    <X className="w-4 h-4 mr-1" />
+                                    Désactiver
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-4 h-4 mr-1" />
+                                    Activer
+                                  </>
+                                )}
+                              </Button>
                             )}
-                          </Button>
+                          </div>
                         </TableCell>
-                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -562,7 +577,140 @@ export default function ActionsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="max-w-lg">
+          {selectedAction && <ActionDetails action={selectedAction} entities={entities || []} products={products || []} />}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+interface ActionDetailsProps {
+  action: CommercialActionWithDates;
+  entities: Entity[];
+  products: Product[];
+}
+
+function ActionDetails({ action, entities, products }: ActionDetailsProps) {
+  const laboratoire = entities.find((e) => e.id === action.laboratoireId);
+
+  const getTargetNames = () => {
+    if (action.scope === "globale") return "Toutes les pharmacies (globale)";
+    if (action.targetEntities) {
+      try {
+        const parsed = JSON.parse(action.targetEntities);
+        if (parsed === "all") return "Toutes les pharmacies";
+        if (Array.isArray(parsed)) {
+          return parsed.map((id: string) => entities.find(e => e.id === id)?.nom || id.slice(0, 8)).join(", ");
+        }
+      } catch {}
+    }
+    return "-";
+  };
+
+  const getProductNames = () => {
+    if (!action.productIds) return "-";
+    try {
+      const ids = JSON.parse(action.productIds);
+      if (Array.isArray(ids)) {
+        return ids.map((id: string) => products.find(p => p.id === id)?.nom || id.slice(0, 8)).join(", ");
+      }
+    } catch {}
+    return action.productIds;
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>{action.titre}</DialogTitle>
+        <DialogDescription>Détails de l'action commerciale</DialogDescription>
+      </DialogHeader>
+      <div className="space-y-4 mt-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <span className="text-sm text-muted-foreground">Type</span>
+            <div className="mt-1"><TypeBadge type={action.type} /></div>
+          </div>
+          <div>
+            <span className="text-sm text-muted-foreground">Portée</span>
+            <div className="mt-1"><ScopeBadge scope={action.scope} /></div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <span className="text-sm text-muted-foreground">Laboratoire</span>
+            <p className="font-medium" data-testid="text-detail-laboratoire">{laboratoire?.nom || "-"}</p>
+          </div>
+          <div>
+            <span className="text-sm text-muted-foreground">Active</span>
+            <p className="font-medium" data-testid="text-detail-active">{action.active ? "Oui" : "Non"}</p>
+          </div>
+        </div>
+
+        <div>
+          <span className="text-sm text-muted-foreground">Cible(s)</span>
+          <p className="font-medium" data-testid="text-detail-target">{getTargetNames()}</p>
+        </div>
+
+        <div>
+          <span className="text-sm text-muted-foreground">Produit(s)</span>
+          <p className="font-medium" data-testid="text-detail-products">{getProductNames()}</p>
+        </div>
+
+        {action.description && (
+          <div>
+            <span className="text-sm text-muted-foreground">Description</span>
+            <p className="font-medium" data-testid="text-detail-description">{action.description}</p>
+          </div>
+        )}
+
+        {action.type === "remise" && action.remisePourcentage && (
+          <div>
+            <span className="text-sm text-muted-foreground">Remise</span>
+            <p className="font-medium">{action.remisePourcentage}%</p>
+          </div>
+        )}
+
+        {action.type === "pack" && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <span className="text-sm text-muted-foreground">Quantité achetée</span>
+              <p className="font-medium">{action.packQuantite ?? "-"}</p>
+            </div>
+            <div>
+              <span className="text-sm text-muted-foreground">Quantité gratuite</span>
+              <p className="font-medium">{action.packGratuit ?? "-"}</p>
+            </div>
+          </div>
+        )}
+
+        {action.conditions && (
+          <div>
+            <span className="text-sm text-muted-foreground">Conditions</span>
+            <p className="font-medium">{action.conditions}</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <span className="text-sm text-muted-foreground">Date de début</span>
+            <p className="font-medium">{format(new Date(action.dateDebut), "dd MMM yyyy", { locale: fr })}</p>
+          </div>
+          <div>
+            <span className="text-sm text-muted-foreground">Date de fin</span>
+            <p className="font-medium">{format(new Date(action.dateFin), "dd MMM yyyy", { locale: fr })}</p>
+          </div>
+        </div>
+
+        <div>
+          <span className="text-sm text-muted-foreground">Créée le</span>
+          <p className="font-medium">{format(new Date(action.createdAt), "dd MMM yyyy à HH:mm", { locale: fr })}</p>
+        </div>
+      </div>
+    </>
   );
 }
 
