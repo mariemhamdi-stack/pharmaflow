@@ -375,11 +375,11 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
       return apiRequest("POST", "/api/orders", data);
     },
     onSuccess: () => {
-      toast({ title: "Commande cr\u00e9\u00e9e", description: "La commande a \u00e9t\u00e9 cr\u00e9\u00e9e en brouillon" });
+      toast({ title: "Commande créée", description: "La commande a été créée en brouillon" });
       onSuccess();
     },
     onError: (error: any) => {
-      toast({ title: "Erreur", description: error.message || "Impossible de cr\u00e9er la commande", variant: "destructive" });
+      toast({ title: "Erreur", description: error.message || "Impossible de créer la commande", variant: "destructive" });
     }
   });
 
@@ -429,7 +429,7 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
       <DialogHeader>
         <DialogTitle>Nouvelle commande</DialogTitle>
         <DialogDescription>
-          Cr\u00e9ez une nouvelle commande pour une pharmacie
+          Créez une nouvelle commande pour une pharmacie
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSubmit} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto pr-1">
@@ -596,12 +596,12 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
 
                     {line.autreEnabled && (
                       <div className="space-y-1">
-                        <label className="text-xs font-medium">Pr\u00e9cision (Autre)</label>
+                        <label className="text-xs font-medium">Précision (Autre)</label>
                         <Input
                           type="text"
                           value={line.autre}
                           onChange={(e) => updateLine(index, { autre: e.target.value })}
-                          placeholder="Pr\u00e9ciser le cas particulier..."
+                          placeholder="Préciser le cas particulier..."
                           data-testid={`input-autre-${index}`}
                         />
                       </div>
@@ -618,14 +618,14 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
           <Textarea
             value={commentaire}
             onChange={(e) => setCommentaire(e.target.value)}
-            placeholder="Instructions sp\u00e9ciales..."
+            placeholder="Instructions spéciales..."
             data-testid="textarea-commentaire"
           />
         </div>
 
         <DialogFooter>
           <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-order">
-            {createMutation.isPending ? "Cr\u00e9ation..." : "Cr\u00e9er la commande"}
+            {createMutation.isPending ? "Création..." : "Créer la commande"}
           </Button>
         </DialogFooter>
       </form>
@@ -1046,8 +1046,8 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Produit</TableHead>
-                  <TableHead className="text-right">Qt\u00e9</TableHead>
-                  <TableHead className="text-right">Accept\u00e9e</TableHead>
+                  <TableHead className="text-right">Qté</TableHead>
+                  <TableHead className="text-right">Acceptée</TableHead>
                   <TableHead>Avantages</TableHead>
                   <TableHead>Statut</TableHead>
                 </TableRow>
