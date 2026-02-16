@@ -1,0 +1,20 @@
+[
+  {
+    "id": "cea180c9-4343-44eb-97de-7dbfb8fd86b6",
+    "delegueId": "834a81bf-5b40-4515-b39d-490ed351a72c",
+    "laboratoireId": "58f1133a-5942-4be1-831d-a818e7554c18",
+    "createdAt": "2026-02-16T09:13:05.981Z"
+  },
+  {
+    "id": "7c1fcfd7-4970-46e9-8766-545ace97078b",
+    "delegueId": "1701a436-2021-49e6-a4cf-94a695bff496",
+    "laboratoireId": "58f1133a-5942-4be1-831d-a818e7554c18",
+    "createdAt": "2026-02-16T09:13:26.831Z"
+  },
+  {
+    "id": "faa35539-191e-4a36-ba99-c9274c5345aa",
+    "delegueId": "223ac39f-7b02-4753-9748-913241f9f8d8",
+    "laboratoireId": "58f1133a-5942-4be1-831d-a818e7554c18",
+    "createdAt": "2026-02-16T09:14:00.959Z"
+  }
+]
