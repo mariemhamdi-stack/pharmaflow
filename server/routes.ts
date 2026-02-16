@@ -916,10 +916,28 @@ export async function registerRoutes(
         offerData.laboratoireId = user.entityId;
       }
 
+      if (offerData.orderId === "none" || offerData.orderId === "") {
+        offerData.orderId = null;
+      }
+      if (!offerData.pharmacieId || offerData.pharmacieId === "") {
+        offerData.pharmacieId = null;
+      }
+      if (!offerData.laboratoireId) {
+        return res.status(400).json({ error: "Laboratoire requis" });
+      }
+
+      if (offerData.dateDebut) {
+        offerData.dateDebut = new Date(offerData.dateDebut);
+      }
+      if (offerData.dateFin) {
+        offerData.dateFin = new Date(offerData.dateFin);
+      }
+
       const offer = await storage.createCommercialOffer(offerData);
       res.status(201).json(offer);
-    } catch (error) {
-      res.status(400).json({ error: "Données invalides" });
+    } catch (error: any) {
+      console.error("Error creating offer:", error?.message || error);
+      res.status(400).json({ error: error?.message || "Données invalides" });
     }
   });
 
@@ -962,10 +980,22 @@ export async function registerRoutes(
         actionData.laboratoireId = user.entityId;
       }
 
+      if (!actionData.laboratoireId) {
+        return res.status(400).json({ error: "Laboratoire requis" });
+      }
+
+      if (actionData.dateDebut) {
+        actionData.dateDebut = new Date(actionData.dateDebut);
+      }
+      if (actionData.dateFin) {
+        actionData.dateFin = new Date(actionData.dateFin);
+      }
+
       const action = await storage.createCommercialAction(actionData);
       res.status(201).json(action);
-    } catch (error) {
-      res.status(400).json({ error: "Données invalides" });
+    } catch (error: any) {
+      console.error("Error creating action:", error?.message || error);
+      res.status(400).json({ error: error?.message || "Données invalides" });
     }
   });
 

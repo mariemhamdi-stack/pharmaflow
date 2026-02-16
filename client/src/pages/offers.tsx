@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { useToast } from "@/hooks/use-toast";
 import { Tag, Plus, Eye, Check, X } from "lucide-react";
 import { format } from "date-fns";
@@ -249,6 +250,7 @@ function CreateOfferForm({ pharmacies, orders, onSuccess }: CreateOfferFormProps
   const [titre, setTitre] = useState("");
   const [description, setDescription] = useState("");
   const [pharmacieId, setPharmacieId] = useState("");
+  const [pharmacieNom, setPharmacieNom] = useState("");
   const [orderId, setOrderId] = useState("");
   const [remisePourcentage, setRemisePourcentage] = useState("");
   const [packQuantite, setPackQuantite] = useState("");
@@ -284,7 +286,7 @@ function CreateOfferForm({ pharmacies, orders, onSuccess }: CreateOfferFormProps
       description: description || null,
       laboratoireId: user?.entityId,
       pharmacieId: pharmacieId || null,
-      orderId: orderId || null,
+      orderId: (orderId && orderId !== "none") ? orderId : null,
       conditions: conditions || null,
       dateDebut: dateDebut ? new Date(dateDebut).toISOString() : new Date().toISOString(),
       dateFin: dateFin ? new Date(dateFin).toISOString() : null,
@@ -349,16 +351,14 @@ function CreateOfferForm({ pharmacies, orders, onSuccess }: CreateOfferFormProps
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Pharmacie</label>
-            <Select value={pharmacieId} onValueChange={setPharmacieId}>
-              <SelectTrigger data-testid="select-offer-pharmacie">
-                <SelectValue placeholder="Sélectionner..." />
-              </SelectTrigger>
-              <SelectContent>
-                {pharmacies.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.nom}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableCombobox
+              value={pharmacieId}
+              displayValue={pharmacieNom}
+              onSelect={(id, label) => { setPharmacieId(id); setPharmacieNom(label); }}
+              searchUrl="/api/entities/search?type=pharmacie&q="
+              placeholder="Rechercher une pharmacie..."
+              testId="search-offer-pharmacie"
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Commande (optionnel)</label>
