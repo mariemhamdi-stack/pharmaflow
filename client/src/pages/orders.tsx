@@ -28,7 +28,14 @@ import {
   RefreshCw,
   Ban,
   CheckCircle2,
-  Clock
+  Clock,
+  Percent,
+  Gift,
+  Ticket,
+  PackageOpen,
+  Star,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -326,6 +333,34 @@ interface CreateOrderFormProps {
   onSuccess: () => void;
 }
 
+interface OrderLineState {
+  productId: string;
+  productNom: string;
+  quantite: number;
+  remise: string;
+  gratuite: string;
+  bonAchat: string;
+  pack: string;
+  miseEnPlace: boolean;
+  autreEnabled: boolean;
+  autre: string;
+  expanded: boolean;
+}
+
+const emptyLine = (): OrderLineState => ({
+  productId: "",
+  productNom: "",
+  quantite: 1,
+  remise: "",
+  gratuite: "",
+  bonAchat: "",
+  pack: "",
+  miseEnPlace: false,
+  autreEnabled: false,
+  autre: "",
+  expanded: false,
+});
+
 function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
   const { toast } = useToast();
   const [pharmacieId, setPharmacieId] = useState("");
@@ -333,47 +368,43 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
   const [grossisteId, setGrossisteId] = useState("");
   const [grossisteNom, setGrossisteNom] = useState("");
   const [commentaire, setCommentaire] = useState("");
-  const [lines, setLines] = useState<{ productId: string; productNom: string; quantite: number }[]>([
-    { productId: "", productNom: "", quantite: 1 }
-  ]);
+  const [lines, setLines] = useState<OrderLineState[]>([emptyLine()]);
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/orders", data);
     },
     onSuccess: () => {
-      toast({ title: "Commande créée", description: "La commande a été créée en brouillon" });
+      toast({ title: "Commande cr\u00e9\u00e9e", description: "La commande a \u00e9t\u00e9 cr\u00e9\u00e9e en brouillon" });
       onSuccess();
     },
     onError: (error: any) => {
-      toast({ title: "Erreur", description: error.message || "Impossible de créer la commande", variant: "destructive" });
+      toast({ title: "Erreur", description: error.message || "Impossible de cr\u00e9er la commande", variant: "destructive" });
     }
   });
 
   const addLine = () => {
-    setLines([...lines, { productId: "", productNom: "", quantite: 1 }]);
+    setLines([...lines, emptyLine()]);
   };
 
   const removeLine = (index: number) => {
     setLines(lines.filter((_, i) => i !== index));
   };
 
-  const updateLineProduct = (index: number, id: string, nom: string) => {
+  const updateLine = (index: number, updates: Partial<OrderLineState>) => {
     const newLines = [...lines];
-    newLines[index] = { ...newLines[index], productId: id, productNom: nom };
+    newLines[index] = { ...newLines[index], ...updates };
     setLines(newLines);
   };
 
-  const updateLineQuantite = (index: number, quantite: number) => {
-    const newLines = [...lines];
-    newLines[index] = { ...newLines[index], quantite };
-    setLines(newLines);
+  const toggleExpanded = (index: number) => {
+    updateLine(index, { expanded: !lines[index].expanded });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!pharmacieId || !grossisteId || lines.some(l => !l.productId)) {
-      toast({ title: "Erreur", description: "Veuillez remplir tous les champs", variant: "destructive" });
+      toast({ title: "Erreur", description: "Veuillez remplir tous les champs obligatoires", variant: "destructive" });
       return;
     }
     createMutation.mutate({
@@ -382,7 +413,13 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
       commentaire,
       lines: lines.map(l => ({
         productId: l.productId,
-        quantiteCommandee: l.quantite
+        quantiteCommandee: l.quantite,
+        remise: l.remise || null,
+        gratuite: l.gratuite ? parseInt(l.gratuite) : null,
+        bonAchat: l.bonAchat || null,
+        pack: l.pack || null,
+        miseEnPlace: l.miseEnPlace,
+        autre: l.autreEnabled && l.autre.trim() ? l.autre.trim() : null,
       }))
     });
   };
@@ -392,10 +429,10 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
       <DialogHeader>
         <DialogTitle>Nouvelle commande</DialogTitle>
         <DialogDescription>
-          Créez une nouvelle commande pour une pharmacie
+          Cr\u00e9ez une nouvelle commande pour une pharmacie
         </DialogDescription>
       </DialogHeader>
-      <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+      <form onSubmit={handleSubmit} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto pr-1">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Pharmacie</label>
@@ -421,47 +458,157 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <label className="text-sm font-medium">Produits</label>
+            <label className="text-sm font-medium">Lignes de commande</label>
             <Button type="button" variant="outline" size="sm" onClick={addLine} data-testid="button-add-line">
-              <Plus className="w-4 h-4 mr-1" /> Ajouter
+              <Plus className="w-4 h-4 mr-1" /> Ajouter un produit
             </Button>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {lines.map((line, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <div className="flex-1">
-                  <SearchableSelect
-                    value={line.productId}
-                    displayValue={line.productNom}
-                    onSelect={(id, label) => updateLineProduct(index, id, label)}
-                    searchUrl="/api/products/search?q="
-                    placeholder="Rechercher un produit..."
-                    testId={`search-product-${index}`}
-                    renderItem={(p: Product) => `${p.nom} - ${p.forme || ""} ${p.dosage || ""}`}
-                  />
-                </div>
-                <Input
-                  type="number"
-                  min="1"
-                  value={line.quantite}
-                  onChange={(e) => updateLineQuantite(index, parseInt(e.target.value) || 1)}
-                  className="w-24"
-                  data-testid={`input-quantity-${index}`}
-                />
-                {lines.length > 1 && (
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
+              <Card key={index} className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <SearchableSelect
+                      value={line.productId}
+                      displayValue={line.productNom}
+                      onSelect={(id, label) => updateLine(index, { productId: id, productNom: label })}
+                      searchUrl="/api/products/search?q="
+                      placeholder="Rechercher un produit..."
+                      testId={`search-product-${index}`}
+                      renderItem={(p: Product) => `${p.nom} - ${p.forme || ""} ${p.dosage || ""}`}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <label className="text-xs text-muted-foreground whitespace-nowrap">Qte</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={line.quantite}
+                      onChange={(e) => updateLine(index, { quantite: parseInt(e.target.value) || 1 })}
+                      className="w-20"
+                      data-testid={`input-quantity-${index}`}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
                     size="icon"
-                    onClick={() => removeLine(index)}
-                    data-testid={`button-remove-line-${index}`}
+                    onClick={() => toggleExpanded(index)}
+                    data-testid={`button-expand-line-${index}`}
                   >
-                    <Trash2 className="w-4 h-4 text-destructive" />
+                    {line.expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </Button>
+                  {lines.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeLine(index)}
+                      data-testid={`button-remove-line-${index}`}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+
+                {line.expanded && (
+                  <div className="mt-3 pt-3 border-t border-border space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium flex items-center gap-1">
+                          <Percent className="w-3 h-3" /> Remise
+                        </label>
+                        <Input
+                          type="text"
+                          value={line.remise}
+                          onChange={(e) => updateLine(index, { remise: e.target.value })}
+                          placeholder="Ex: 10%"
+                          data-testid={`input-remise-${index}`}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium flex items-center gap-1">
+                          <Gift className="w-3 h-3" /> Gratuite
+                        </label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={line.gratuite}
+                          onChange={(e) => updateLine(index, { gratuite: e.target.value })}
+                          placeholder="Qte gratuite"
+                          data-testid={`input-gratuite-${index}`}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium flex items-center gap-1">
+                          <Ticket className="w-3 h-3" /> Bon d'achat
+                        </label>
+                        <Input
+                          type="text"
+                          value={line.bonAchat}
+                          onChange={(e) => updateLine(index, { bonAchat: e.target.value })}
+                          placeholder="Valeur ou avantage"
+                          data-testid={`input-bon-achat-${index}`}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium flex items-center gap-1">
+                          <PackageOpen className="w-3 h-3" /> Pack
+                        </label>
+                        <Input
+                          type="text"
+                          value={line.pack}
+                          onChange={(e) => updateLine(index, { pack: e.target.value })}
+                          placeholder="Ex: 10+1 gratuit"
+                          data-testid={`input-pack-${index}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <Button
+                        type="button"
+                        variant={line.miseEnPlace ? "default" : "outline"}
+                        size="sm"
+                        className="toggle-elevate"
+                        onClick={() => updateLine(index, { miseEnPlace: !line.miseEnPlace })}
+                        data-testid={`button-mise-en-place-${index}`}
+                      >
+                        <Star className="w-4 h-4 mr-1" />
+                        Mise en place
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={line.autreEnabled ? "default" : "outline"}
+                        size="sm"
+                        className="toggle-elevate"
+                        onClick={() => {
+                          updateLine(index, { autreEnabled: !line.autreEnabled, autre: !line.autreEnabled ? line.autre : "" });
+                        }}
+                        data-testid={`button-autre-toggle-${index}`}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Autre
+                      </Button>
+                    </div>
+
+                    {line.autreEnabled && (
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium">Pr\u00e9cision (Autre)</label>
+                        <Input
+                          type="text"
+                          value={line.autre}
+                          onChange={(e) => updateLine(index, { autre: e.target.value })}
+                          placeholder="Pr\u00e9ciser le cas particulier..."
+                          data-testid={`input-autre-${index}`}
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
-              </div>
+              </Card>
             ))}
           </div>
         </div>
@@ -471,14 +618,14 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
           <Textarea
             value={commentaire}
             onChange={(e) => setCommentaire(e.target.value)}
-            placeholder="Instructions spéciales..."
+            placeholder="Instructions sp\u00e9ciales..."
             data-testid="textarea-commentaire"
           />
         </div>
 
         <DialogFooter>
           <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-order">
-            {createMutation.isPending ? "Création..." : "Créer la commande"}
+            {createMutation.isPending ? "Cr\u00e9ation..." : "Cr\u00e9er la commande"}
           </Button>
         </DialogFooter>
       </form>
@@ -899,29 +1046,50 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Produit</TableHead>
-                  <TableHead className="text-right">Qté commandée</TableHead>
-                  <TableHead className="text-right">Qté acceptée</TableHead>
+                  <TableHead className="text-right">Qt\u00e9</TableHead>
+                  <TableHead className="text-right">Accept\u00e9e</TableHead>
+                  <TableHead>Avantages</TableHead>
                   <TableHead>Statut</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {order.lines?.map((line) => (
-                  <TableRow key={line.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{line.product?.nom}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {line.product?.forme} - {line.product?.dosage}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">{line.quantiteCommandee}</TableCell>
-                    <TableCell className="text-right">{line.quantiteAcceptee || "-"}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={line.status} type="line" />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {order.lines?.map((line) => {
+                  const advantages: string[] = [];
+                  if (line.remise) advantages.push(`Remise: ${line.remise}`);
+                  if (line.gratuite) advantages.push(`Gratuite: ${line.gratuite}`);
+                  if (line.bonAchat) advantages.push(`Bon: ${line.bonAchat}`);
+                  if (line.pack) advantages.push(`Pack: ${line.pack}`);
+                  if (line.miseEnPlace) advantages.push("Mise en place");
+                  if (line.autre) advantages.push(`Autre: ${line.autre}`);
+                  return (
+                    <TableRow key={line.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{line.product?.nom}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {line.product?.forme} - {line.product?.dosage}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">{line.quantiteCommandee}</TableCell>
+                      <TableCell className="text-right">{line.quantiteAcceptee || "-"}</TableCell>
+                      <TableCell>
+                        {advantages.length > 0 ? (
+                          <div className="flex flex-col gap-0.5">
+                            {advantages.map((a, i) => (
+                              <span key={i} className="text-xs text-muted-foreground">{a}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={line.status} type="line" />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>

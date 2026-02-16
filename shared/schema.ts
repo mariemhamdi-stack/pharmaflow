@@ -104,7 +104,7 @@ export const orderLines = pgTable("order_lines", {
   productId: varchar("product_id").references(() => products.id).notNull(),
   quantiteCommandee: integer("quantite_commandee").notNull(),
   quantiteAcceptee: integer("quantite_acceptee"),
-  remise: numeric("remise"),
+  remise: text("remise"),
   gratuite: integer("gratuite"),
   bonAchat: text("bon_achat"),
   pack: text("pack"),
