@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Plus, 
@@ -232,102 +233,6 @@ export default function OrdersPage() {
   );
 }
 
-interface SearchableSelectProps {
-  value: string;
-  onSelect: (id: string, label: string) => void;
-  searchUrl: string;
-  placeholder: string;
-  displayValue: string;
-  testId: string;
-  renderItem?: (item: any) => string;
-}
-
-function SearchableSelect({ value, onSelect, searchUrl, placeholder, displayValue, testId, renderItem }: SearchableSelectProps) {
-  const [search, setSearch] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const timerRef = useState<ReturnType<typeof setTimeout> | null>(null);
-
-  const doSearch = async (q: string) => {
-    if (q.length < 2) {
-      setResults([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch(`${searchUrl}${encodeURIComponent(q)}`, { credentials: "include" });
-      const data = await res.json();
-      setResults(data);
-    } catch {
-      setResults([]);
-    }
-    setLoading(false);
-  };
-
-  const handleChange = (val: string) => {
-    setSearch(val);
-    if (timerRef[0]) clearTimeout(timerRef[0]);
-    timerRef[0] = setTimeout(() => doSearch(val), 300);
-  };
-
-  return (
-    <div className="relative">
-      {value && displayValue ? (
-        <div className="flex items-center gap-2">
-          <span className="flex-1 text-sm truncate px-3 py-2 border border-border rounded-md bg-muted" data-testid={`${testId}-display`}>
-            {displayValue}
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => { onSelect("", ""); setSearch(""); setResults([]); }}
-            data-testid={`${testId}-clear`}
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-      ) : (
-        <>
-          <Input
-            value={search}
-            onChange={(e) => { handleChange(e.target.value); setIsOpen(true); }}
-            onFocus={() => setIsOpen(true)}
-            placeholder={placeholder}
-            data-testid={testId}
-          />
-          {isOpen && search.length >= 2 && (
-            <div className="absolute z-50 mt-1 w-full max-h-48 overflow-auto border border-border rounded-md bg-popover shadow-md">
-              {loading ? (
-                <div className="px-3 py-2 text-sm text-muted-foreground">Recherche...</div>
-              ) : results.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-muted-foreground">Aucun résultat</div>
-              ) : (
-                results.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="w-full text-left px-3 py-2 text-sm hover-elevate"
-                    onClick={() => {
-                      const label = renderItem ? renderItem(item) : item.nom;
-                      onSelect(item.id, label);
-                      setSearch("");
-                      setIsOpen(false);
-                    }}
-                    data-testid={`${testId}-option-${item.id}`}
-                  >
-                    {renderItem ? renderItem(item) : item.nom}
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
 
 interface CreateOrderFormProps {
   onSuccess: () => void;
@@ -436,7 +341,7 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Pharmacie</label>
-            <SearchableSelect
+            <SearchableCombobox
               value={pharmacieId}
               displayValue={pharmacieNom}
               onSelect={(id, label) => { setPharmacieId(id); setPharmacieNom(label); }}
@@ -447,7 +352,7 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Grossiste</label>
-            <SearchableSelect
+            <SearchableCombobox
               value={grossisteId}
               displayValue={grossisteNom}
               onSelect={(id, label) => { setGrossisteId(id); setGrossisteNom(label); }}
@@ -470,7 +375,7 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
               <Card key={index} className="p-3">
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
-                    <SearchableSelect
+                    <SearchableCombobox
                       value={line.productId}
                       displayValue={line.productNom}
                       onSelect={(id, label) => updateLine(index, { productId: id, productNom: label })}
