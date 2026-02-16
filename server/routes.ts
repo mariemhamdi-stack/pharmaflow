@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import { storage } from "./storage";
-import { loginSchema, insertUserSchema, insertEntitySchema, insertProductSchema, insertOrderSchema, insertOrderLineSchema, statusTransitions, insertCommercialOfferSchema, insertCommercialActionSchema, insertCommunicationSchema } from "@shared/schema";
+import { loginSchema, insertUserSchema, insertEntitySchema, insertProductSchema, insertOrderSchema, insertOrderLineSchema, statusTransitions, insertCommercialOfferSchema, insertCommercialActionSchema, insertCommunicationSchema, type CommercialOffer, type CommercialAction } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { sendOrderStatusEmail } from "./email";
@@ -893,13 +893,24 @@ export async function registerRoutes(
     const user = await storage.getUser(req.session.userId!);
     if (!user) return res.status(401).json({ error: "Non authentifié" });
 
-    let offers;
+    let offers: CommercialOffer[] = [];
     if (user.role === "admin") {
       offers = await storage.getCommercialOffers();
-    } else if (user.role === "laboratoire" || user.role === "delegue") {
+    } else if (user.role === "laboratoire") {
       offers = await storage.getCommercialOffers(user.entityId || undefined);
+    } else if (user.role === "delegue") {
+      const laboIds = await storage.getDelegueLaboratoireIds(user.id);
+      if (laboIds.length > 0) {
+        offers = await storage.getCommercialOffersByLabs(laboIds);
+      } else if (user.entityId) {
+        offers = await storage.getCommercialOffers(user.entityId);
+      } else {
+        offers = [];
+      }
+    } else if (user.role === "pharmacie" && user.entityId) {
+      offers = await storage.getCommercialOffersForPharmacie(user.entityId);
     } else {
-      offers = await storage.getCommercialOffers();
+      offers = [];
     }
     res.json(offers);
   });
@@ -962,11 +973,24 @@ export async function registerRoutes(
     const user = await storage.getUser(req.session.userId!);
     if (!user) return res.status(401).json({ error: "Non authentifié" });
 
-    let actions;
-    if (user.role === "laboratoire") {
+    let actions: CommercialAction[] = [];
+    if (user.role === "admin") {
+      actions = await storage.getCommercialActions();
+    } else if (user.role === "laboratoire") {
       actions = await storage.getCommercialActions(user.entityId || undefined);
+    } else if (user.role === "delegue") {
+      const laboIds = await storage.getDelegueLaboratoireIds(user.id);
+      if (laboIds.length > 0) {
+        actions = await storage.getCommercialActionsByLabs(laboIds);
+      } else if (user.entityId) {
+        actions = await storage.getCommercialActions(user.entityId);
+      } else {
+        actions = [];
+      }
+    } else if (user.role === "pharmacie" && user.entityId) {
+      actions = await storage.getCommercialActionsForPharmacie(user.entityId);
     } else {
-      actions = await storage.getActiveCommercialActions();
+      actions = [];
     }
     res.json(actions);
   });

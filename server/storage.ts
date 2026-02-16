@@ -69,6 +69,8 @@ export interface IStorage {
   
   // Commercial Offers
   getCommercialOffers(laboratoireId?: string): Promise<CommercialOffer[]>;
+  getCommercialOffersByLabs(laboratoireIds: string[]): Promise<CommercialOffer[]>;
+  getCommercialOffersForPharmacie(pharmacieId: string): Promise<CommercialOffer[]>;
   getCommercialOffer(id: string): Promise<CommercialOffer | undefined>;
   createCommercialOffer(offer: InsertCommercialOffer): Promise<CommercialOffer>;
   updateCommercialOffer(id: string, data: Partial<InsertCommercialOffer>): Promise<CommercialOffer | undefined>;
@@ -76,6 +78,8 @@ export interface IStorage {
   
   // Commercial Actions
   getCommercialActions(laboratoireId?: string): Promise<CommercialAction[]>;
+  getCommercialActionsByLabs(laboratoireIds: string[]): Promise<CommercialAction[]>;
+  getCommercialActionsForPharmacie(pharmacieId: string): Promise<CommercialAction[]>;
   getActiveCommercialActions(): Promise<CommercialAction[]>;
   createCommercialAction(action: InsertCommercialAction): Promise<CommercialAction>;
   updateCommercialAction(id: string, data: Partial<InsertCommercialAction>): Promise<CommercialAction | undefined>;
@@ -402,6 +406,28 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(commercialOffers).orderBy(desc(commercialOffers.createdAt));
   }
 
+  async getCommercialOffersByLabs(laboratoireIds: string[]): Promise<CommercialOffer[]> {
+    if (laboratoireIds.length === 0) return [];
+    return db.select().from(commercialOffers)
+      .where(inArray(commercialOffers.laboratoireId, laboratoireIds))
+      .orderBy(desc(commercialOffers.createdAt));
+  }
+
+  async getCommercialOffersForPharmacie(pharmacieId: string): Promise<CommercialOffer[]> {
+    const allOffers = await db.select().from(commercialOffers).orderBy(desc(commercialOffers.createdAt));
+    return allOffers.filter(offer => {
+      if (offer.pharmacieId === pharmacieId) return true;
+      if (offer.pharmacieIds) {
+        try {
+          const ids = JSON.parse(offer.pharmacieIds);
+          if (ids === "all") return true;
+          if (Array.isArray(ids) && ids.includes(pharmacieId)) return true;
+        } catch { }
+      }
+      return false;
+    });
+  }
+
   async getCommercialOffer(id: string): Promise<CommercialOffer | undefined> {
     const [offer] = await db.select().from(commercialOffers).where(eq(commercialOffers.id, id));
     return offer;
@@ -429,6 +455,30 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(commercialActions.createdAt));
     }
     return db.select().from(commercialActions).orderBy(desc(commercialActions.createdAt));
+  }
+
+  async getCommercialActionsByLabs(laboratoireIds: string[]): Promise<CommercialAction[]> {
+    if (laboratoireIds.length === 0) return [];
+    return db.select().from(commercialActions)
+      .where(inArray(commercialActions.laboratoireId, laboratoireIds))
+      .orderBy(desc(commercialActions.createdAt));
+  }
+
+  async getCommercialActionsForPharmacie(pharmacieId: string): Promise<CommercialAction[]> {
+    const allActions = await db.select().from(commercialActions)
+      .where(eq(commercialActions.active, true))
+      .orderBy(desc(commercialActions.createdAt));
+    return allActions.filter(action => {
+      if (action.scope === "globale") return true;
+      if (action.targetEntities) {
+        try {
+          const ids = JSON.parse(action.targetEntities);
+          if (ids === "all") return true;
+          if (Array.isArray(ids) && ids.includes(pharmacieId)) return true;
+        } catch { }
+      }
+      return false;
+    });
   }
 
   async getActiveCommercialActions(): Promise<CommercialAction[]> {

@@ -144,6 +144,7 @@ export const commercialOffers = pgTable("commercial_offers", {
   laboratoireId: varchar("laboratoire_id").references(() => entities.id).notNull(),
   delegueId: varchar("delegue_id").references(() => users.id),
   pharmacieId: varchar("pharmacie_id").references(() => entities.id),
+  pharmacieIds: text("pharmacie_ids"),
   orderId: varchar("order_id").references(() => orders.id),
   titre: text("titre").notNull(),
   description: text("description"),
