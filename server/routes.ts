@@ -535,6 +535,12 @@ export async function registerRoutes(
       const orderLines = lines.map((l: any) => ({
         productId: l.productId,
         quantiteCommandee: l.quantiteCommandee,
+        remise: l.remise || null,
+        gratuite: l.gratuite || null,
+        bonAchat: l.bonAchat || null,
+        pack: l.pack || null,
+        miseEnPlace: l.miseEnPlace || false,
+        autre: l.autre || null,
         status: "en_attente" as const
       }));
       
