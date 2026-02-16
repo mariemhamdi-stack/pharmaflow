@@ -28,9 +28,22 @@ async function insertInBatches(table: any, data: any[], batchSize = 500) {
 export async function seedDatabase() {
   try {
     const existingUsers = await db.select().from(users);
-    if (existingUsers.length > 0) {
-      console.log("Database already seeded, skipping...");
+    const existingEntities = await db.select().from(entities);
+    
+    if (existingUsers.length > 0 && existingEntities.length > 100) {
+      console.log("Database already fully seeded, skipping...");
       return;
+    }
+    
+    if (existingUsers.length > 0 && existingEntities.length <= 100) {
+      console.log("Database partially seeded, clearing and re-seeding...");
+      await db.delete(orderHistory);
+      await db.delete(orderLines);
+      await db.delete(orders);
+      await db.delete(delegueLaboratoires);
+      await db.delete(products);
+      await db.delete(users);
+      await db.delete(entities);
     }
   } catch (err) {
     console.error("Error checking existing users, tables may not exist yet:", err);
