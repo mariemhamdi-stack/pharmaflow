@@ -3,9 +3,14 @@ import { users, entities, products, orders, orderLines, orderHistory } from "@sh
 import bcrypt from "bcrypt";
 
 export async function seedDatabase() {
-  const existingUsers = await db.select().from(users);
-  if (existingUsers.length > 0) {
-    console.log("Database already seeded, skipping...");
+  try {
+    const existingUsers = await db.select().from(users);
+    if (existingUsers.length > 0) {
+      console.log("Database already seeded, skipping...");
+      return;
+    }
+  } catch (err) {
+    console.error("Error checking existing users, tables may not exist yet:", err);
     return;
   }
 
