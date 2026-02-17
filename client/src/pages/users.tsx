@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/status-badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Users as UsersIcon, X } from "lucide-react";
+import { Plus, Search, Edit, Users as UsersIcon, X, Eye, EyeOff } from "lucide-react";
 
 export default function UsersPage() {
   const { toast } = useToast();
@@ -221,6 +221,7 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
   const [status, setStatus] = useState<string>(user?.status || "actif");
   const [selectedLaboIds, setSelectedLaboIds] = useState<string[]>([]);
   const [laboSearch, setLaboSearch] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const { data: existingLaboIds } = useQuery<string[]>({
     queryKey: ["/api/users", user?.id, "laboratoires"],
@@ -351,13 +352,25 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
           <label className="text-sm font-medium">
             Mot de passe {user ? "(laisser vide pour ne pas modifier)" : "*"}
           </label>
-          <Input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            data-testid="input-user-password"
-          />
+          <div className="relative">
+            <Input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder=""
+              className="pr-10"
+              data-testid="input-user-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="button-toggle-user-password"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

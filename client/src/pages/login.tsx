@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { Pill, Lock, Mail, Loader2 } from "lucide-react";
+import { Pill, Lock, Mail, Loader2, Eye, EyeOff } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import sentinelLogo from "@assets/logo_1771319487082.png";
 
@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -106,11 +107,20 @@ export default function LoginPage() {
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <Input 
                             {...field} 
-                            type="password" 
-                            placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" 
-                            className="pl-10"
+                            type={showPassword ? "text" : "password"} 
+                            placeholder="" 
+                            className="pl-10 pr-10"
                             data-testid="input-password"
                           />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            data-testid="button-toggle-password"
+                            tabIndex={-1}
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
                         </div>
                       </FormControl>
                       <FormMessage />
