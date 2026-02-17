@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import logoPath from "@assets/logo_1771318325040.png";
 import {
   Sidebar,
   SidebarContent,
@@ -22,7 +23,6 @@ import {
   Building2,
   Bell,
   LogOut,
-  Pill,
   History,
   BarChart3,
   Tag,
@@ -129,13 +129,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-md bg-primary flex items-center justify-center">
-            <Pill className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h2 className="font-bold text-lg text-sidebar-foreground">PharmaFlow</h2>
-            <p className="text-xs text-muted-foreground">Gestion commandes</p>
-          </div>
+          <img src={logoPath} alt="Sentinel Data" className="h-8 w-auto" />
         </div>
       </SidebarHeader>
 

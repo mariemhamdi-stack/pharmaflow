@@ -33,7 +33,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Tableau de bord administrateur</h1>
-        <p className="text-muted-foreground mt-1">Vue globale du système PharmaFlow</p>
+        <p className="text-muted-foreground mt-1">Vue globale du syst\u00e8me Sentinel Data</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

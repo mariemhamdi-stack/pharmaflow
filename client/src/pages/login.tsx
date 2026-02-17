@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { Pill, Lock, Mail, Loader2 } from "lucide-react";
+import { Lock, Mail, Loader2 } from "lucide-react";
+import logoPath from "@assets/logo_1771318325040.png";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
@@ -32,7 +33,7 @@ export default function LoginPage() {
     setIsLoading(false);
 
     if (success) {
-      toast({ title: "Connexion réussie", description: "Bienvenue sur PharmaFlow" });
+      toast({ title: "Connexion r\u00e9ussie", description: "Bienvenue sur Sentinel Data" });
       setLocation("/");
     } else {
       toast({ 
@@ -51,10 +52,7 @@ export default function LoginPage() {
       
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-            <Pill className="w-8 h-8 text-primary" />
-          </div>
-          <h1 className="text-3xl font-bold text-foreground">PharmaFlow</h1>
+          <img src={logoPath} alt="Sentinel Data" className="h-12 w-auto mx-auto mb-4" />
           <p className="text-muted-foreground mt-2">Gestion des commandes pharmaceutiques</p>
         </div>
 
