@@ -4,12 +4,14 @@ import * as schema from "@shared/schema";
 
 const { Pool } = pg;
 
-if (!process.env.DATABASE_URL) {
+const connectionString = process.env.DATABASE_URL || `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT || 5432}/${process.env.PGDATABASE}`;
+
+if (!connectionString) {
   throw new Error("DATABASE_URL must be set");
 }
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString
 });
 
 export const db = drizzle(pool, { schema });
