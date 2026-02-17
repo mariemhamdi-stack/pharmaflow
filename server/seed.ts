@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users, entities, products, delegueLaboratoires, orders, orderLines, orderHistory } from "@shared/schema";
+import { users, entities, products, delegueLaboratoires, orders, orderLines, orderHistory, notifications, commercialOffers, commercialActions, communications } from "@shared/schema";
 import fs from "fs";
 import path from "path";
 
@@ -18,6 +18,19 @@ function loadJSON(filename: string): any[] {
   return [];
 }
 
+function loadFullExport(): any | null {
+  const possiblePaths = [
+    path.join(process.cwd(), "scripts", "dev-data.json"),
+    path.join(__dirname, "..", "scripts", "dev-data.json"),
+  ];
+  for (const filePath of possiblePaths) {
+    if (fs.existsSync(filePath)) {
+      return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    }
+  }
+  return null;
+}
+
 async function insertInBatches(table: any, data: any[], batchSize = 500) {
   for (let i = 0; i < data.length; i += batchSize) {
     const batch = data.slice(i, i + batchSize);
@@ -26,31 +39,56 @@ async function insertInBatches(table: any, data: any[], batchSize = 500) {
 }
 
 export async function seedDatabase() {
+  let existingUserCount = 0;
   try {
     const existingUsers = await db.select().from(users);
-    const existingEntities = await db.select().from(entities);
-    
-    if (existingUsers.length > 0 && existingEntities.length > 100) {
-      console.log("Database already fully seeded, skipping...");
-      return;
-    }
-    
-    if (existingUsers.length > 0 && existingEntities.length <= 100) {
-      console.log("Database partially seeded, clearing and re-seeding...");
-      await db.delete(orderHistory);
-      await db.delete(orderLines);
-      await db.delete(orders);
-      await db.delete(delegueLaboratoires);
-      await db.delete(products);
-      await db.delete(users);
-      await db.delete(entities);
-    }
+    existingUserCount = existingUsers.length;
   } catch (err) {
     console.error("Error checking existing users, tables may not exist yet:", err);
     return;
   }
 
-  console.log("Seeding database from data files...");
+  if (existingUserCount > 0) {
+    console.log("Database already seeded, skipping...");
+    return;
+  }
+
+  console.log("Database is empty (0 users), seeding...");
+
+  const fullExport = loadFullExport();
+  if (fullExport) {
+    console.log("Seeding from full export (dev-data.json)...");
+    try {
+      const tableInserts: [string, any, number?][] = [
+        ["entities", entities, 200],
+        ["users", users],
+        ["delegueLaboratoires", delegueLaboratoires],
+        ["products", products, 200],
+        ["orders", orders],
+        ["orderLines", orderLines],
+        ["orderHistory", orderHistory],
+        ["notifications", notifications],
+        ["commercialOffers", commercialOffers],
+        ["commercialActions", commercialActions],
+        ["communications", communications],
+      ];
+
+      for (const [key, table, batchSize] of tableInserts) {
+        const rows = fullExport[key];
+        if (rows && rows.length > 0) {
+          console.log(`  Inserting ${rows.length} ${key}...`);
+          await insertInBatches(table, rows, (batchSize as number) || 500);
+        }
+      }
+
+      console.log("Database seeded successfully from full export!");
+      return;
+    } catch (err) {
+      console.error("Error seeding from full export:", err);
+    }
+  }
+
+  console.log("Seeding from individual data files...");
 
   try {
     const entitiesData = loadJSON("entities.json");
