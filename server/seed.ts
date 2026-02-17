@@ -31,9 +31,29 @@ function loadFullExport(): any | null {
   return null;
 }
 
+const dateFields = [
+  "createdAt", "lastLogin", "blockedAt", "sentAt",
+  "validatedByDelegueAt", "validatedByPharmacieAt",
+  "dateDebut", "dateFin", "viewedAt", "readAt",
+  "startDate", "endDate", "timestamp"
+];
+
+function convertDates(rows: any[]): any[] {
+  return rows.map(row => {
+    const converted = { ...row };
+    for (const field of dateFields) {
+      if (converted[field] && typeof converted[field] === "string") {
+        converted[field] = new Date(converted[field]);
+      }
+    }
+    return converted;
+  });
+}
+
 async function insertInBatches(table: any, data: any[], batchSize = 500) {
-  for (let i = 0; i < data.length; i += batchSize) {
-    const batch = data.slice(i, i + batchSize);
+  const rows = convertDates(data);
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const batch = rows.slice(i, i + batchSize);
     await db.insert(table).values(batch);
   }
 }
