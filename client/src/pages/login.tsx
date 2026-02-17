@@ -11,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { Pill, Lock, Mail, Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import sentinelLogo from "@assets/logo_1771319487082.png";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -45,6 +46,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
+      <div className="absolute top-4 left-4">
+        <img src={sentinelLogo} alt="Sentinel Data" className="h-10 object-contain" data-testid="img-sentinel-logo" />
+      </div>
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
