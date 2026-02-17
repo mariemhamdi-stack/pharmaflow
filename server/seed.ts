@@ -40,20 +40,45 @@ async function insertInBatches(table: any, data: any[], batchSize = 500) {
 
 export async function seedDatabase() {
   let existingUserCount = 0;
+  let existingEntityCount = 0;
+  let existingProductCount = 0;
   try {
     const existingUsers = await db.select().from(users);
     existingUserCount = existingUsers.length;
+    const existingEntities = await db.select().from(entities);
+    existingEntityCount = existingEntities.length;
+    const existingProducts = await db.select().from(products);
+    existingProductCount = existingProducts.length;
   } catch (err) {
-    console.error("Error checking existing users, tables may not exist yet:", err);
+    console.error("Error checking existing data, tables may not exist yet:", err);
     return;
   }
 
-  if (existingUserCount > 0) {
-    console.log("Database already seeded, skipping...");
+  if (existingUserCount > 0 && existingEntityCount > 100 && existingProductCount > 100) {
+    console.log("Database already fully seeded, skipping...");
     return;
   }
 
-  console.log("Database is empty (0 users), seeding...");
+  if (existingUserCount > 0 || existingEntityCount > 0) {
+    console.log("Database partially seeded, clearing and re-seeding...");
+    try {
+      await db.delete(communications);
+      await db.delete(commercialActions);
+      await db.delete(commercialOffers);
+      await db.delete(notifications);
+      await db.delete(orderHistory);
+      await db.delete(orderLines);
+      await db.delete(orders);
+      await db.delete(delegueLaboratoires);
+      await db.delete(products);
+      await db.delete(users);
+      await db.delete(entities);
+    } catch (err) {
+      console.log("Warning during cleanup:", err);
+    }
+  }
+
+  console.log("Seeding database...");
 
   const fullExport = loadFullExport();
   if (fullExport) {
