@@ -118,8 +118,12 @@ export async function registerRoutes(
   app.get("/api/users", requireRole("admin", "laboratoire"), async (req, res) => {
     const currentUser = (req as any).user;
     let users = await storage.getUsers();
-    if (currentUser.role === "laboratoire") {
-      users = users.filter(u => u.entityId === currentUser.entityId);
+    if (currentUser.role === "laboratoire" && currentUser.entityId) {
+      const delegueIds = await storage.getDelegueIdsForLaboratoire(currentUser.entityId);
+      users = users.filter(u => 
+        u.entityId === currentUser.entityId || 
+        (u.role === "delegue" && delegueIds.includes(u.id))
+      );
     }
     const usersWithoutPasswords = users.map(({ password, ...u }) => u);
     res.json(usersWithoutPasswords);
@@ -565,7 +569,7 @@ export async function registerRoutes(
   app.patch("/api/orders/:id/status", requireAuth, async (req, res) => {
     try {
       const id = req.params.id as string;
-      const { status, commentaire } = req.body;
+      const { status, commentaire, lines } = req.body;
       const user = await storage.getUser(req.session.userId!);
       
       if (!user) {
@@ -631,6 +635,29 @@ export async function registerRoutes(
       }
       
       const updated = await storage.updateOrderStatus(id, status, user.id, user.role, commentaire);
+
+      // Update order lines for partial acceptance
+      if (status === "partiellement_acceptee" && lines && Array.isArray(lines)) {
+        const orderLines = order.lines || [];
+        const orderLineIds = new Set(orderLines.map(l => l.id));
+        for (const line of lines) {
+          if (!line.id || !orderLineIds.has(line.id)) continue;
+          const dbLine = orderLines.find(l => l.id === line.id);
+          if (!dbLine) continue;
+          const acceptee = Math.max(0, Math.min(dbLine.quantiteCommandee, typeof line.quantiteAcceptee === "number" ? line.quantiteAcceptee : dbLine.quantiteCommandee));
+          const lineStatus = acceptee === 0 ? "refusee" 
+            : acceptee < dbLine.quantiteCommandee ? "partiellement_acceptee" 
+            : "acceptee";
+          await storage.updateOrderLine(line.id, acceptee, lineStatus);
+        }
+      }
+
+      // Update all lines to "acceptee" when order is fully accepted
+      if (status === "acceptee" && order.lines) {
+        for (const line of order.lines) {
+          await storage.updateOrderLine(line.id, line.quantiteCommandee, "acceptee");
+        }
+      }
       
       // Auto-transition: validee_pharmacie → envoyee (automatic)
       if (status === "validee_pharmacie") {

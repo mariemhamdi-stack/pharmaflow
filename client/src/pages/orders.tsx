@@ -36,7 +36,8 @@ import {
   PackageOpen,
   Star,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  SplitSquareHorizontal
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -548,12 +549,14 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
   const { toast } = useToast();
   const [showRefuseDialog, setShowRefuseDialog] = useState(false);
   const [showReassignDialog, setShowReassignDialog] = useState(false);
+  const [showPartialDialog, setShowPartialDialog] = useState(false);
   const [refuseComment, setRefuseComment] = useState("");
   const [newGrossisteId, setNewGrossisteId] = useState("");
+  const [partialLines, setPartialLines] = useState<{ id: string; productName: string; quantiteCommandee: number; quantiteAcceptee: number }[]>([]);
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ status, commentaire }: { status: string; commentaire?: string }) => {
-      return apiRequest("PATCH", `/api/orders/${order.id}/status`, { status, commentaire });
+    mutationFn: async ({ status, commentaire, lines }: { status: string; commentaire?: string; lines?: any[] }) => {
+      return apiRequest("PATCH", `/api/orders/${order.id}/status`, { status, commentaire, lines });
     },
     onSuccess: () => {
       toast({ title: "Statut mis à jour" });
@@ -661,7 +664,41 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
     );
   }
 
-  // Envoyee → acceptee/refusee (grossiste only)
+  const openPartialDialog = () => {
+    if (order.lines && order.lines.length > 0) {
+      setPartialLines(order.lines.map(l => ({
+        id: l.id,
+        productName: l.product?.nom || "Produit",
+        quantiteCommandee: l.quantiteCommandee,
+        quantiteAcceptee: l.quantiteCommandee
+      })));
+      setShowPartialDialog(true);
+    }
+  };
+
+  const handlePartialAccept = () => {
+    const hasPartialChange = partialLines.some(l => l.quantiteAcceptee < l.quantiteCommandee);
+    if (!hasPartialChange) {
+      toast({ title: "Erreur", description: "Modifiez au moins une quantite pour une acceptation partielle", variant: "destructive" });
+      return;
+    }
+    const allZero = partialLines.every(l => l.quantiteAcceptee === 0);
+    if (allZero) {
+      toast({ title: "Erreur", description: "Toutes les quantites sont a zero. Utilisez le refus total.", variant: "destructive" });
+      return;
+    }
+    updateStatusMutation.mutate({
+      status: "partiellement_acceptee",
+      lines: partialLines.map(l => ({
+        id: l.id,
+        quantiteCommandee: l.quantiteCommandee,
+        quantiteAcceptee: l.quantiteAcceptee
+      }))
+    });
+    setShowPartialDialog(false);
+  };
+
+  // Envoyee → acceptee/refusee/partiellement_acceptee (grossiste only)
   if (order.status === "envoyee" && (userRole === "grossiste" || userRole === "admin")) {
     return (
       <>
@@ -677,6 +714,16 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
           </Button>
           <Button
             size="sm"
+            variant="outline"
+            onClick={openPartialDialog}
+            disabled={updateStatusMutation.isPending}
+            data-testid={`button-partial-order-${order.id}`}
+          >
+            <SplitSquareHorizontal className="w-4 h-4 mr-1" />
+            Partiel
+          </Button>
+          <Button
+            size="sm"
             variant="destructive"
             onClick={() => setShowRefuseDialog(true)}
             disabled={updateStatusMutation.isPending}
@@ -685,6 +732,57 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
             <X className="w-4 h-4" />
           </Button>
         </div>
+
+        <Dialog open={showPartialDialog} onOpenChange={setShowPartialDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Acceptation partielle</DialogTitle>
+              <DialogDescription>
+                Indiquez les quantites acceptees pour chaque produit. Les quantites refusees seront calculees automatiquement.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {partialLines.map((line, index) => (
+                <Card key={line.id}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{line.productName}</p>
+                        <p className="text-xs text-muted-foreground">Commandee : {line.quantiteCommandee}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-muted-foreground whitespace-nowrap">Acceptee :</label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={line.quantiteCommandee}
+                          value={line.quantiteAcceptee}
+                          onChange={(e) => {
+                            const val = Math.max(0, Math.min(line.quantiteCommandee, parseInt(e.target.value) || 0));
+                            setPartialLines(prev => prev.map((l, i) => i === index ? { ...l, quantiteAcceptee: val } : l));
+                          }}
+                          className="w-20"
+                          data-testid={`input-partial-qty-${line.id}`}
+                        />
+                      </div>
+                    </div>
+                    {line.quantiteAcceptee < line.quantiteCommandee && (
+                      <p className="text-xs text-destructive mt-1">
+                        Refusee : {line.quantiteCommandee - line.quantiteAcceptee}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowPartialDialog(false)}>Annuler</Button>
+              <Button onClick={handlePartialAccept} disabled={updateStatusMutation.isPending} data-testid="button-confirm-partial">
+                Confirmer l'acceptation partielle
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={showRefuseDialog} onOpenChange={setShowRefuseDialog}>
           <DialogContent>
@@ -776,7 +874,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
     );
   }
 
-  if (order.status === "acceptee" && (userRole === "grossiste" || userRole === "admin")) {
+  if ((order.status === "acceptee" || order.status === "partiellement_acceptee") && (userRole === "grossiste" || userRole === "admin")) {
     return (
       <Button
         size="sm"
@@ -845,15 +943,19 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
     queryKey: ["/api/orders", order.id, "history"]
   });
 
+  const isPartial = order.status === "partiellement_acceptee" || 
+    (order.lines?.some(l => l.status === "partiellement_acceptee" || l.status === "refusee") && 
+     !["brouillon", "validee_delegue", "validee_pharmacie", "envoyee", "refusee", "annulee"].includes(order.status));
+  
   const statusSteps = [
     { key: "brouillon", label: "Brouillon" },
-    { key: "validee_delegue", label: "Validée délégué" },
-    { key: "validee_pharmacie", label: "Validée pharmacie" },
-    { key: "envoyee", label: "Envoyée" },
-    { key: "acceptee", label: "Acceptée" },
-    { key: "en_preparation", label: "En préparation" },
-    { key: "livree", label: "Livrée" },
-    { key: "cloturee", label: "Clôturée" }
+    { key: "validee_delegue", label: "Valid\u00e9e d\u00e9l\u00e9gu\u00e9" },
+    { key: "validee_pharmacie", label: "Valid\u00e9e pharmacie" },
+    { key: "envoyee", label: "Envoy\u00e9e" },
+    { key: isPartial ? "partiellement_acceptee" : "acceptee", label: isPartial ? "Partielle" : "Accept\u00e9e" },
+    { key: "en_preparation", label: "En pr\u00e9paration" },
+    { key: "livree", label: "Livr\u00e9e" },
+    { key: "cloturee", label: "Cl\u00f4tur\u00e9e" }
   ];
 
   const currentStepIndex = statusSteps.findIndex(s => s.key === order.status);
@@ -951,8 +1053,9 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Produit</TableHead>
-                  <TableHead className="text-right">Qté</TableHead>
-                  <TableHead className="text-right">Acceptée</TableHead>
+                  <TableHead className="text-right">Commandee</TableHead>
+                  <TableHead className="text-right">Acceptee</TableHead>
+                  <TableHead className="text-right">Refusee</TableHead>
                   <TableHead>Avantages</TableHead>
                   <TableHead>Statut</TableHead>
                 </TableRow>
@@ -966,8 +1069,11 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
                   if (line.pack) advantages.push(`Pack: ${line.pack}`);
                   if (line.miseEnPlace) advantages.push("Mise en place");
                   if (line.autre) advantages.push(`Autre: ${line.autre}`);
+                  const quantiteRefusee = line.quantiteAcceptee !== null && line.quantiteAcceptee !== undefined
+                    ? line.quantiteCommandee - line.quantiteAcceptee
+                    : null;
                   return (
-                    <TableRow key={line.id}>
+                    <TableRow key={line.id} data-testid={`row-orderline-${line.id}`}>
                       <TableCell>
                         <div>
                           <p className="font-medium">{line.product?.nom}</p>
@@ -976,8 +1082,17 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">{line.quantiteCommandee}</TableCell>
-                      <TableCell className="text-right">{line.quantiteAcceptee || "-"}</TableCell>
+                      <TableCell className="text-right" data-testid={`text-qty-ordered-${line.id}`}>{line.quantiteCommandee}</TableCell>
+                      <TableCell className="text-right" data-testid={`text-qty-accepted-${line.id}`}>
+                        {line.quantiteAcceptee !== null && line.quantiteAcceptee !== undefined ? line.quantiteAcceptee : "-"}
+                      </TableCell>
+                      <TableCell className="text-right" data-testid={`text-qty-refused-${line.id}`}>
+                        {quantiteRefusee !== null && quantiteRefusee > 0 ? (
+                          <span className="text-destructive font-medium">{quantiteRefusee}</span>
+                        ) : quantiteRefusee === 0 ? (
+                          <span>0</span>
+                        ) : "-"}
+                      </TableCell>
                       <TableCell>
                         {advantages.length > 0 ? (
                           <div className="flex flex-col gap-0.5">

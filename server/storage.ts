@@ -93,6 +93,7 @@ export interface IStorage {
   // Delegate-Laboratory associations
   getDelegueLaboratoires(delegueId: string): Promise<DelegueLaboratoire[]>;
   getDelegueLaboratoireIds(delegueId: string): Promise<string[]>;
+  getDelegueIdsForLaboratoire(laboratoireId: string): Promise<string[]>;
   setDelegueLaboratoires(delegueId: string, laboratoireIds: string[]): Promise<void>;
   
   // Stats
@@ -638,6 +639,13 @@ export class DatabaseStorage implements IStorage {
       .from(delegueLaboratoires)
       .where(eq(delegueLaboratoires.delegueId, delegueId));
     return rows.map(r => r.laboratoireId);
+  }
+
+  async getDelegueIdsForLaboratoire(laboratoireId: string): Promise<string[]> {
+    const rows = await db.select({ delegueId: delegueLaboratoires.delegueId })
+      .from(delegueLaboratoires)
+      .where(eq(delegueLaboratoires.laboratoireId, laboratoireId));
+    return rows.map(r => r.delegueId);
   }
 
   async setDelegueLaboratoires(delegueId: string, laboratoireIds: string[]): Promise<void> {

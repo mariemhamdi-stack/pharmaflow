@@ -272,6 +272,7 @@ export const statusTransitions: Record<string, { actor: string; nextStatuses: st
   validee_pharmacie: { actor: "system", nextStatuses: ["envoyee"] },
   envoyee: { actor: "grossiste", nextStatuses: ["acceptee", "refusee", "partiellement_acceptee"] },
   acceptee: { actor: "grossiste", nextStatuses: ["en_preparation"] },
+  partiellement_acceptee: { actor: "grossiste", nextStatuses: ["en_preparation"] },
   en_preparation: { actor: "grossiste", nextStatuses: ["livree"] },
   livree: { actor: "pharmacie", nextStatuses: ["cloturee", "litige"] },
   refusee: { actor: "delegue", nextStatuses: ["envoyee", "annulee"] },
