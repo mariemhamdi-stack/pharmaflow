@@ -1139,5 +1139,81 @@ export async function registerRoutes(
     res.json(stats);
   });
 
+  app.post("/api/admin/seed-production", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ error: "Accès refusé" });
+    }
+
+    try {
+      const fs = await import("fs");
+      const path = await import("path");
+      const dataPath = path.join(process.cwd(), "scripts", "dev-data.json");
+      
+      if (!fs.existsSync(dataPath)) {
+        return res.status(404).json({ error: "Fichier de données introuvable" });
+      }
+
+      const raw = fs.readFileSync(dataPath, "utf-8");
+      const data = JSON.parse(raw);
+      
+      const { db } = await import("./db");
+      const schema = await import("../shared/schema");
+
+      const tablesClear = [
+        schema.communications,
+        schema.commercialActions,
+        schema.commercialOffers,
+        schema.notifications,
+        schema.orderHistory,
+        schema.orderLines,
+        schema.orders,
+        schema.delegueLaboratoires,
+        schema.products,
+        schema.users,
+        schema.entities,
+      ];
+
+      for (const table of tablesClear) {
+        await db.delete(table);
+      }
+
+      const insertOrder: [string, any][] = [
+        ["entities", schema.entities],
+        ["users", schema.users],
+        ["delegueLaboratoires", schema.delegueLaboratoires],
+        ["products", schema.products],
+        ["orders", schema.orders],
+        ["orderLines", schema.orderLines],
+        ["orderHistory", schema.orderHistory],
+        ["notifications", schema.notifications],
+        ["commercialOffers", schema.commercialOffers],
+        ["commercialActions", schema.commercialActions],
+        ["communications", schema.communications],
+      ];
+
+      const results: Record<string, number> = {};
+      for (const [key, table] of insertOrder) {
+        const rows = data[key];
+        if (!rows || rows.length === 0) {
+          results[key] = 0;
+          continue;
+        }
+        const batchSize = 500;
+        let inserted = 0;
+        for (let i = 0; i < rows.length; i += batchSize) {
+          const batch = rows.slice(i, i + batchSize);
+          await db.insert(table).values(batch);
+          inserted += batch.length;
+        }
+        results[key] = inserted;
+      }
+
+      res.json({ success: true, results });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   return httpServer;
 }
