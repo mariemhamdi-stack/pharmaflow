@@ -46,11 +46,6 @@ export function SearchableCombobox({
 
   const doSearch = useCallback(
     async (q: string) => {
-      if (q.length < 2) {
-        setResults([]);
-        setHasSearched(false);
-        return;
-      }
       setLoading(true);
       try {
         const res = await fetch(`${searchUrl}${encodeURIComponent(q)}`, {
@@ -92,12 +87,14 @@ export function SearchableCombobox({
   };
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      doSearch("");
+    } else {
       setSearch("");
       setResults([]);
       setHasSearched(false);
     }
-  }, [open]);
+  }, [open, doSearch]);
 
   const getItemLabel = (item: any) =>
     renderItem ? renderItem(item) : item.nom;
@@ -146,8 +143,8 @@ export function SearchableCombobox({
               {!loading && hasSearched && results.length === 0 && (
                 <CommandEmpty>Aucun résultat</CommandEmpty>
               )}
-              {!hasSearched && !loading && (
-                <CommandEmpty>Tapez pour rechercher...</CommandEmpty>
+              {!hasSearched && !loading && results.length === 0 && (
+                <CommandEmpty>Chargement...</CommandEmpty>
               )}
               {results.length > 0 && (
                 <CommandGroup>

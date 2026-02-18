@@ -21,7 +21,6 @@ const NotificationsPage = lazy(() => import("@/pages/notifications"));
 const HistoryPage = lazy(() => import("@/pages/history"));
 const StatsPage = lazy(() => import("@/pages/stats"));
 const OffersPage = lazy(() => import("@/pages/offers"));
-const ActionsPage = lazy(() => import("@/pages/actions"));
 const CommunicationsPage = lazy(() => import("@/pages/communications"));
 import NotFound from "@/pages/not-found";
 
@@ -82,7 +81,7 @@ function Router() {
         </RoleRoute>
       </Route>
       <Route path="/offers" component={OffersPage} />
-      <Route path="/actions" component={ActionsPage} />
+      <Route path="/actions" component={OffersPage} />
       <Route path="/communications" component={CommunicationsPage} />
       <Route path="/notifications" component={NotificationsPage} />
       <Route path="/history">

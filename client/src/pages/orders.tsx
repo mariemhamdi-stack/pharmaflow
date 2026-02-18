@@ -37,7 +37,9 @@ import {
   Star,
   ChevronDown,
   ChevronUp,
-  SplitSquareHorizontal
+  SplitSquareHorizontal,
+  Upload,
+  FileText
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -47,6 +49,10 @@ export default function OrdersPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [pharmacieFilter, setPharmacieFilter] = useState<string>("all");
+  const [grossisteFilter, setGrossisteFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
   const [selectedOrder, setSelectedOrder] = useState<OrderWithRelations | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -62,15 +68,26 @@ export default function OrdersPage() {
 
   const allGrossistes = allGrossistesList || [];
 
+  const { data: allPharmaciesList } = useQuery<Entity[]>({
+    queryKey: ["/api/entities"],
+    select: (data: Entity[]) => data.filter(e => e.type === "pharmacie"),
+  });
+  const allPharmacies = allPharmaciesList || [];
+
   const filteredOrders = orders?.filter(order => {
     const matchesSearch = 
       order.id.toLowerCase().includes(search.toLowerCase()) ||
       order.pharmacie?.nom?.toLowerCase().includes(search.toLowerCase()) ||
-      order.grossiste?.nom?.toLowerCase().includes(search.toLowerCase());
+      order.grossiste?.nom?.toLowerCase().includes(search.toLowerCase()) ||
+      order.laboratoire?.nom?.toLowerCase().includes(search.toLowerCase());
     
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+    const matchesPharmacie = pharmacieFilter === "all" || order.pharmacieId === pharmacieFilter;
+    const matchesGrossiste = grossisteFilter === "all" || order.grossisteId === grossisteFilter;
+    const matchesDateFrom = !dateFrom || new Date(order.createdAt) >= new Date(dateFrom);
+    const matchesDateTo = !dateTo || new Date(order.createdAt) <= new Date(dateTo + "T23:59:59");
     
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesPharmacie && matchesGrossiste && matchesDateFrom && matchesDateTo;
   });
 
   const canCreateOrder = user?.role === "delegue" || user?.role === "admin";
@@ -145,6 +162,45 @@ export default function OrdersPage() {
               </Select>
             </div>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={pharmacieFilter} onValueChange={setPharmacieFilter}>
+              <SelectTrigger className="w-48" data-testid="select-pharmacie-filter">
+                <SelectValue placeholder="Pharmacie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les pharmacies</SelectItem>
+                {allPharmacies.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.nom}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={grossisteFilter} onValueChange={setGrossisteFilter}>
+              <SelectTrigger className="w-48" data-testid="select-grossiste-filter">
+                <SelectValue placeholder="Grossiste" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les grossistes</SelectItem>
+                {allGrossistes.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>{g.nom}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-40"
+              data-testid="input-date-from"
+            />
+            <span className="text-muted-foreground text-sm">à</span>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-40"
+              data-testid="input-date-to"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -169,6 +225,7 @@ export default function OrdersPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Référence</TableHead>
+                    <TableHead>Laboratoire</TableHead>
                     <TableHead>Pharmacie</TableHead>
                     <TableHead>Grossiste</TableHead>
                     <TableHead>Statut</TableHead>
@@ -182,6 +239,7 @@ export default function OrdersPage() {
                       <TableCell className="font-mono text-sm" data-testid={`text-order-ref-${order.id}`}>
                         {order.id.slice(0, 8)}...
                       </TableCell>
+                      <TableCell data-testid={`text-order-labo-${order.id}`}>{order.laboratoire?.nom || "-"}</TableCell>
                       <TableCell data-testid={`text-order-pharmacie-${order.id}`}>{order.pharmacie?.nom || "-"}</TableCell>
                       <TableCell data-testid={`text-order-grossiste-${order.id}`}>{order.grossiste?.nom || "-"}</TableCell>
                       <TableCell data-testid={`text-order-status-${order.id}`}>
@@ -550,6 +608,9 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
   const [showRefuseDialog, setShowRefuseDialog] = useState(false);
   const [showReassignDialog, setShowReassignDialog] = useState(false);
   const [showPartialDialog, setShowPartialDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showLitigeDialog, setShowLitigeDialog] = useState(false);
+  const [litigeMotif, setLitigeMotif] = useState("");
   const [refuseComment, setRefuseComment] = useState("");
   const [newGrossisteId, setNewGrossisteId] = useState("");
   const [partialLines, setPartialLines] = useState<{ id: string; productName: string; quantiteCommandee: number; quantiteAcceptee: number }[]>([]);
@@ -615,26 +676,42 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
   // Brouillon → Validee delegue (delegue only)
   if (order.status === "brouillon" && (userRole === "delegue" || userRole === "admin")) {
     return (
-      <div className="flex gap-1">
-        <Button
-          size="sm"
-          onClick={() => handleStatusChange("validee_delegue")}
-          disabled={updateStatusMutation.isPending}
-          data-testid={`button-validate-delegue-${order.id}`}
-        >
-          <CheckCircle2 className="w-4 h-4 mr-1" />
-          Valider
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => cancelMutation.mutate()}
-          disabled={cancelMutation.isPending}
-          data-testid={`button-cancel-order-${order.id}`}
-        >
-          <Ban className="w-4 h-4" />
-        </Button>
-      </div>
+      <>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            onClick={() => handleStatusChange("validee_delegue")}
+            disabled={updateStatusMutation.isPending}
+            data-testid={`button-validate-delegue-${order.id}`}
+          >
+            <CheckCircle2 className="w-4 h-4 mr-1" />
+            Valider
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => setShowCancelDialog(true)}
+            disabled={cancelMutation.isPending}
+            data-testid={`button-cancel-order-${order.id}`}
+          >
+            <Ban className="w-4 h-4" />
+          </Button>
+        </div>
+        <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Annuler la commande</DialogTitle>
+              <DialogDescription>Êtes-vous sûr de vouloir annuler cette commande ? Cette action est irréversible.</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCancelDialog(false)}>Non, garder</Button>
+              <Button variant="destructive" onClick={() => { cancelMutation.mutate(); setShowCancelDialog(false); }} disabled={cancelMutation.isPending} data-testid="button-confirm-cancel">
+                Oui, annuler
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
@@ -826,13 +903,28 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
           <Button
             size="sm"
             variant="destructive"
-            onClick={() => cancelMutation.mutate()}
+            onClick={() => setShowCancelDialog(true)}
             disabled={cancelMutation.isPending}
             data-testid={`button-cancel-refused-${order.id}`}
           >
             <Ban className="w-4 h-4" />
           </Button>
         </div>
+
+        <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Annuler la commande</DialogTitle>
+              <DialogDescription>Êtes-vous sûr de vouloir annuler cette commande ? Cette action est irréversible.</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCancelDialog(false)}>Non, garder</Button>
+              <Button variant="destructive" onClick={() => { cancelMutation.mutate(); setShowCancelDialog(false); }} disabled={cancelMutation.isPending} data-testid="button-confirm-cancel">
+                Oui, annuler
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={showReassignDialog} onOpenChange={setShowReassignDialog}>
           <DialogContent>
@@ -905,27 +997,57 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
   // Livree → cloturee OR litige (pharmacie only - litige ONLY after delivery)
   if (order.status === "livree" && (userRole === "pharmacie" || userRole === "admin")) {
     return (
-      <div className="flex gap-1">
-        <Button
-          size="sm"
-          variant="default"
-          onClick={() => handleStatusChange("cloturee")}
-          disabled={updateStatusMutation.isPending}
-          data-testid={`button-close-order-${order.id}`}
-        >
-          <Check className="w-4 h-4 mr-1" />
-          Confirmer
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => handleStatusChange("litige")}
-          disabled={updateStatusMutation.isPending}
-          data-testid={`button-dispute-order-${order.id}`}
-        >
-          <AlertTriangle className="w-4 h-4" />
-        </Button>
-      </div>
+      <>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="default"
+            onClick={() => handleStatusChange("cloturee")}
+            disabled={updateStatusMutation.isPending}
+            data-testid={`button-close-order-${order.id}`}
+          >
+            <Check className="w-4 h-4 mr-1" />
+            Confirmer
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => setShowLitigeDialog(true)}
+            disabled={updateStatusMutation.isPending}
+            data-testid={`button-dispute-order-${order.id}`}
+          >
+            <AlertTriangle className="w-4 h-4" />
+          </Button>
+        </div>
+        <Dialog open={showLitigeDialog} onOpenChange={setShowLitigeDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Déclarer un litige</DialogTitle>
+              <DialogDescription>Veuillez décrire le motif du litige. Cette information est obligatoire.</DialogDescription>
+            </DialogHeader>
+            <Textarea
+              value={litigeMotif}
+              onChange={(e) => setLitigeMotif(e.target.value)}
+              placeholder="Motif du litige..."
+              data-testid="textarea-litige-motif"
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowLitigeDialog(false)}>Annuler</Button>
+              <Button variant="destructive" onClick={() => {
+                if (!litigeMotif.trim()) {
+                  toast({ title: "Erreur", description: "Le motif du litige est obligatoire", variant: "destructive" });
+                  return;
+                }
+                updateStatusMutation.mutate({ status: "litige", commentaire: litigeMotif });
+                setShowLitigeDialog(false);
+                setLitigeMotif("");
+              }} disabled={updateStatusMutation.isPending} data-testid="button-confirm-litige">
+                Déclarer le litige
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
@@ -939,6 +1061,32 @@ interface OrderDetailsProps {
 }
 
 function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
+  const { toast } = useToast();
+  const [uploadingBL, setUploadingBL] = useState(false);
+  const [uploadingBR, setUploadingBR] = useState(false);
+
+  const uploadMutation = useMutation({
+    mutationFn: async ({ file, type }: { file: File; type: string }) => {
+      const formData = new FormData();
+      formData.append("document", file);
+      formData.append("type", type);
+      const res = await fetch(`/api/orders/${order.id}/upload`, {
+        method: "POST",
+        body: formData,
+        credentials: "include"
+      });
+      if (!res.ok) throw new Error("Upload échoué");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({ title: "Document téléversé" });
+    },
+    onError: () => {
+      toast({ title: "Erreur", description: "Échec du téléversement", variant: "destructive" });
+    }
+  });
+
   const { data: history } = useQuery<any[]>({
     queryKey: ["/api/orders", order.id, "history"]
   });
@@ -1029,6 +1177,17 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
             </CardHeader>
             <CardContent>
               <p className="text-sm">{order.motifRefus}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {order.motifLitige && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-destructive">Motif du litige</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm">{order.motifLitige}</p>
             </CardContent>
           </Card>
         )}
@@ -1143,6 +1302,86 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
                   <p className="font-medium">{format(new Date(order.sentAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
                 </div>
               )}
+              {order.livreeAt && (
+                <div>
+                  <p className="text-muted-foreground">Livraison</p>
+                  <p className="font-medium">{format(new Date(order.livreeAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+                </div>
+              )}
+              {order.clotureeAt && (
+                <div>
+                  <p className="text-muted-foreground">Clôture</p>
+                  <p className="font-medium">{format(new Date(order.clotureeAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Documents</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <p className="text-sm font-medium">Bon de livraison</p>
+                  {order.bonLivraisonUrl ? (
+                    <a href={order.bonLivraisonUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline flex items-center gap-1" data-testid="link-bon-livraison">
+                      <FileText className="w-3 h-3" /> Voir le document
+                    </a>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Non fourni</p>
+                  )}
+                </div>
+                {(userRole === "grossiste" || userRole === "admin") && ["en_preparation", "livree", "cloturee"].includes(order.status) && (
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadMutation.mutate({ file, type: "bon_livraison" });
+                      }}
+                      data-testid="input-upload-bl"
+                    />
+                    <Button size="sm" variant="outline" asChild>
+                      <span><Upload className="w-3 h-3 mr-1" /> {uploadMutation.isPending ? "..." : "Téléverser BL"}</span>
+                    </Button>
+                  </label>
+                )}
+              </div>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <p className="text-sm font-medium">Bon de réception</p>
+                  {order.bonReceptionUrl ? (
+                    <a href={order.bonReceptionUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline flex items-center gap-1" data-testid="link-bon-reception">
+                      <FileText className="w-3 h-3" /> Voir le document
+                    </a>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Non fourni</p>
+                  )}
+                </div>
+                {(userRole === "pharmacie" || userRole === "admin") && ["livree", "cloturee"].includes(order.status) && (
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadMutation.mutate({ file, type: "bon_reception" });
+                      }}
+                      data-testid="input-upload-br"
+                    />
+                    <Button size="sm" variant="outline" asChild>
+                      <span><Upload className="w-3 h-3 mr-1" /> {uploadMutation.isPending ? "..." : "Téléverser BR"}</span>
+                    </Button>
+                  </label>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

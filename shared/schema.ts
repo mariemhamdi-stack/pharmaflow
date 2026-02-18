@@ -91,10 +91,15 @@ export const orders = pgTable("orders", {
   status: orderStatusEnum("status").notNull().default("brouillon"),
   commentaire: text("commentaire"),
   motifRefus: text("motif_refus"),
+  motifLitige: text("motif_litige"),
+  bonLivraisonUrl: text("bon_livraison_url"),
+  bonReceptionUrl: text("bon_reception_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   sentAt: timestamp("sent_at"),
   validatedByDelegueAt: timestamp("validated_by_delegue_at"),
-  validatedByPharmacieAt: timestamp("validated_by_pharmacie_at")
+  validatedByPharmacieAt: timestamp("validated_by_pharmacie_at"),
+  livreeAt: timestamp("livree_at"),
+  clotureeAt: timestamp("cloturee_at")
 });
 
 // Order lines table
@@ -156,9 +161,11 @@ export const commercialOffers = pgTable("commercial_offers", {
   conditions: text("conditions"),
   dateDebut: timestamp("date_debut").defaultNow().notNull(),
   dateFin: timestamp("date_fin"),
+  quantiteMinimale: text("quantite_minimale"),
   validee: boolean("validee").default(false),
   valideeParLabo: boolean("validee_par_labo").default(false),
   valideeParPharmacie: boolean("validee_par_pharmacie").default(false),
+  active: boolean("active").default(true),
   impactFinancier: numeric("impact_financier"),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });

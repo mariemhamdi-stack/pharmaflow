@@ -1,16 +1,27 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Notification } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bell, Check, CheckCheck, Package } from "lucide-react";
+import { Bell, Check, CheckCheck, Package, Filter } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 
 export default function NotificationsPage() {
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
   const { data: notifications, isLoading } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"]
+  });
+
+  const filteredNotifications = notifications?.filter(n => {
+    const matchesDateFrom = !dateFrom || new Date(n.createdAt) >= new Date(dateFrom);
+    const matchesDateTo = !dateTo || new Date(n.createdAt) <= new Date(dateTo + "T23:59:59");
+    return matchesDateFrom && matchesDateTo;
   });
 
   const markAsReadMutation = useMutation({
@@ -59,10 +70,30 @@ export default function NotificationsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Bell className="w-5 h-5 text-primary" />
-            Historique des notifications
-          </CardTitle>
+          <div className="flex flex-col gap-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" />
+              Historique des notifications
+            </CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="w-40"
+                data-testid="input-notif-date-from"
+              />
+              <span className="text-muted-foreground text-sm">à</span>
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="w-40"
+                data-testid="input-notif-date-to"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -71,15 +102,17 @@ export default function NotificationsPage() {
                 <Skeleton key={i} className="h-20 w-full" />
               ))}
             </div>
-          ) : notifications?.length === 0 ? (
+          ) : filteredNotifications?.length === 0 ? (
             <div className="text-center py-12">
               <Bell className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground">Aucune notification</h3>
-              <p className="text-muted-foreground mt-1">Vous n'avez pas encore reçu de notifications</p>
+              <p className="text-muted-foreground mt-1">
+                {dateFrom || dateTo ? "Aucune notification pour cette période" : "Vous n'avez pas encore reçu de notifications"}
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {notifications?.map((notification) => (
+              {filteredNotifications?.map((notification) => (
                 <div 
                   key={notification.id}
                   className={`p-4 rounded-md border ${

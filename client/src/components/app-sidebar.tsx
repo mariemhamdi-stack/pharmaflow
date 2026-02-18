@@ -47,7 +47,6 @@ export function AppSidebar() {
         { title: "Produits", url: "/products", icon: Package },
         { title: "Commandes", url: "/orders", icon: ShoppingCart },
         { title: "Offres commerciales", url: "/offers", icon: Tag },
-        { title: "Actions commerciales", url: "/actions", icon: Megaphone },
         { title: "Communications", url: "/communications", icon: MessageSquare },
         { title: "Historique", url: "/history", icon: History },
         { title: "Statistiques", url: "/stats", icon: BarChart3 }
@@ -62,7 +61,6 @@ export function AppSidebar() {
         { title: "Produits", url: "/products", icon: Package },
         { title: "Commandes", url: "/orders", icon: ShoppingCart },
         { title: "Offres commerciales", url: "/offers", icon: Tag },
-        { title: "Actions commerciales", url: "/actions", icon: Megaphone },
         { title: "Communications", url: "/communications", icon: MessageSquare },
         { title: "Historique", url: "/history", icon: History },
         { title: "Statistiques", url: "/stats", icon: BarChart3 }
@@ -75,7 +73,6 @@ export function AppSidebar() {
         { title: "Mes commandes", url: "/orders", icon: ShoppingCart },
         { title: "Produits", url: "/products", icon: Package },
         { title: "Offres commerciales", url: "/offers", icon: Tag },
-        { title: "Actions commerciales", url: "/actions", icon: Megaphone },
         { title: "Communications", url: "/communications", icon: MessageSquare }
       ];
     }
@@ -84,6 +81,7 @@ export function AppSidebar() {
       return [
         ...baseItems,
         { title: "Commandes à traiter", url: "/orders", icon: ShoppingCart },
+        { title: "Offres commerciales", url: "/offers", icon: Tag },
         { title: "Communications", url: "/communications", icon: MessageSquare }
       ];
     }
@@ -93,7 +91,6 @@ export function AppSidebar() {
         ...baseItems,
         { title: "Mes commandes", url: "/orders", icon: ShoppingCart },
         { title: "Offres commerciales", url: "/offers", icon: Tag },
-        { title: "Actions commerciales", url: "/actions", icon: Megaphone },
         { title: "Communications", url: "/communications", icon: MessageSquare }
       ];
     }

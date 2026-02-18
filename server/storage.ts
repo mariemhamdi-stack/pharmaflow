@@ -50,9 +50,12 @@ export interface IStorage {
     pharmacieId?: string;
     laboratoireId?: string;
     status?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
   }): Promise<OrderWithRelations[]>;
   createOrder(order: InsertOrder, lines: InsertOrderLine[]): Promise<Order>;
   updateOrderStatus(id: string, status: string, userId: string, role: string, commentaire?: string): Promise<Order | undefined>;
+  updateOrderDocuments(id: string, data: { bonLivraisonUrl?: string; bonReceptionUrl?: string }): Promise<Order | undefined>;
   updateOrderGrossiste(id: string, grossisteId: string): Promise<Order | undefined>;
   updateOrderLine(lineId: string, quantiteAcceptee: number, status: string): Promise<OrderLine | undefined>;
   
@@ -98,7 +101,8 @@ export interface IStorage {
   
   // Stats
   getDashboardStats(userId: string, role: string, entityId?: string | null): Promise<any>;
-  getFullStats(laboratoireId?: string): Promise<any>;
+  getFullStats(laboratoireId?: string, dateFrom?: Date, dateTo?: Date): Promise<any>;
+  getCommercialOffersForGrossiste(grossisteId: string): Promise<CommercialOffer[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -150,7 +154,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchEntities(search: string, type?: string, limit: number = 30): Promise<Entity[]> {
-    const conditions = [ilike(entities.nom, `%${search}%`), eq(entities.blocked, false)];
+    const conditions = [eq(entities.blocked, false)];
+    if (search.length >= 2) {
+      conditions.push(ilike(entities.nom, `%${search}%`));
+    }
     if (type) {
       conditions.push(eq(entities.type, type));
     }
@@ -181,10 +188,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchProducts(search: string, laboratoireIds?: string[], limit: number = 30): Promise<Product[]> {
-    const conditions = [
-      ilike(products.nom, `%${search}%`),
-      eq(products.status, "actif"),
-    ];
+    const conditions = [eq(products.status, "actif")];
+    if (search.length >= 2) {
+      conditions.push(ilike(products.nom, `%${search}%`));
+    }
     if (laboratoireIds && laboratoireIds.length > 0) {
       conditions.push(inArray(products.laboratoireId, laboratoireIds));
     }
@@ -239,6 +246,8 @@ export class DatabaseStorage implements IStorage {
     pharmacieId?: string;
     laboratoireId?: string;
     status?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
   }): Promise<OrderWithRelations[]> {
     let query = db.select().from(orders);
     
@@ -257,6 +266,12 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.status) {
       conditions.push(eq(orders.status, filters.status as any));
+    }
+    if (filters?.dateFrom) {
+      conditions.push(gte(orders.createdAt, filters.dateFrom));
+    }
+    if (filters?.dateTo) {
+      conditions.push(lte(orders.createdAt, filters.dateTo));
     }
 
     const orderList = conditions.length > 0
@@ -322,6 +337,15 @@ export class DatabaseStorage implements IStorage {
     if (status === "refusee" && commentaire) {
       updateData.motifRefus = commentaire;
     }
+    if (status === "litige" && commentaire) {
+      updateData.motifLitige = commentaire;
+    }
+    if (status === "livree") {
+      updateData.livreeAt = new Date();
+    }
+    if (status === "cloturee") {
+      updateData.clotureeAt = new Date();
+    }
 
     const [updated] = await db.update(orders)
       .set(updateData)
@@ -337,6 +361,11 @@ export class DatabaseStorage implements IStorage {
       commentaire
     });
 
+    return updated;
+  }
+
+  async updateOrderDocuments(id: string, data: { bonLivraisonUrl?: string; bonReceptionUrl?: string }): Promise<Order | undefined> {
+    const [updated] = await db.update(orders).set(data).where(eq(orders.id, id)).returning();
     return updated;
   }
 
@@ -577,11 +606,29 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getFullStats(laboratoireId?: string): Promise<any> {
+  async getCommercialOffersForGrossiste(grossisteId: string): Promise<CommercialOffer[]> {
+    const allOffers = await db.select().from(commercialOffers)
+      .where(eq(commercialOffers.active, true))
+      .orderBy(desc(commercialOffers.createdAt));
+    return allOffers;
+  }
+
+  async getFullStats(laboratoireId?: string, dateFrom?: Date, dateTo?: Date): Promise<any> {
     let orderList: Order[] = [];
     
+    const conditions = [];
     if (laboratoireId) {
-      orderList = await db.select().from(orders).where(eq(orders.laboratoireId, laboratoireId));
+      conditions.push(eq(orders.laboratoireId, laboratoireId));
+    }
+    if (dateFrom) {
+      conditions.push(gte(orders.createdAt, dateFrom));
+    }
+    if (dateTo) {
+      conditions.push(lte(orders.createdAt, dateTo));
+    }
+    
+    if (conditions.length > 0) {
+      orderList = await db.select().from(orders).where(and(...conditions));
     } else {
       orderList = await db.select().from(orders);
     }

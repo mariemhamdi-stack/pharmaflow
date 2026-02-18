@@ -6,6 +6,10 @@ import { loginSchema, insertUserSchema, insertEntitySchema, insertProductSchema,
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { sendOrderStatusEmail } from "./email";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { static as serveStatic } from "express";
 
 declare module "express-session" {
   interface SessionData {
@@ -37,6 +41,29 @@ function requireRole(...roles: string[]) {
   };
 }
 
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+const upload = multer({ 
+  storage: multer.diskStorage({
+    destination: uploadsDir,
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      cb(null, `${Date.now()}-${crypto.randomUUID()}${ext}`);
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (['.pdf', '.jpg', '.jpeg', '.png'].includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Type de fichier non autorisé"));
+    }
+  }
+});
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -53,6 +80,8 @@ export async function registerRoutes(
       }
     })
   );
+
+  app.use("/uploads", serveStatic(uploadsDir));
 
   // ============================================
   // AUTH ROUTES
@@ -214,9 +243,6 @@ export async function registerRoutes(
   app.get("/api/entities/search", requireAuth, async (req, res) => {
     const search = (req.query.q as string) || "";
     const type = req.query.type as string | undefined;
-    if (search.length < 2) {
-      return res.json([]);
-    }
     const results = await storage.searchEntities(search, type);
     res.json(results);
   });
@@ -301,9 +327,6 @@ export async function registerRoutes(
   app.get("/api/products/search", requireAuth, async (req, res) => {
     const user = await storage.getUser(req.session.userId!);
     const search = (req.query.q as string) || "";
-    if (search.length < 2) {
-      return res.json([]);
-    }
     
     let laboratoireIds: string[] | undefined;
     if (user?.role === "laboratoire" && user.entityId) {
@@ -606,6 +629,9 @@ export async function registerRoutes(
         if (user.role !== "pharmacie" && user.role !== "admin") {
           return res.status(403).json({ error: "Seule la pharmacie peut déclarer un litige" });
         }
+        if (!commentaire) {
+          return res.status(400).json({ error: "Le motif du litige est obligatoire" });
+        }
       } else {
         // Validate transitions
         const transition = statusTransitions[currentStatus];
@@ -793,6 +819,36 @@ export async function registerRoutes(
     }
   });
 
+  // Upload delivery documents
+  app.post("/api/orders/:id/upload", requireAuth, upload.single("document"), async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) return res.status(401).json({ error: "Non authentifié" });
+      
+      const order = await storage.getOrder(id);
+      if (!order) return res.status(404).json({ error: "Commande non trouvée" });
+      
+      const file = req.file;
+      if (!file) return res.status(400).json({ error: "Aucun fichier" });
+      
+      const type = req.body.type;
+      const fileUrl = `/uploads/${file.filename}`;
+      
+      if (type === "bon_livraison" && (user.role === "grossiste" || user.role === "admin")) {
+        await storage.updateOrderDocuments(id, { bonLivraisonUrl: fileUrl });
+      } else if (type === "bon_reception" && (user.role === "pharmacie" || user.role === "admin")) {
+        await storage.updateOrderDocuments(id, { bonReceptionUrl: fileUrl });
+      } else {
+        return res.status(403).json({ error: "Action non autorisée" });
+      }
+      
+      res.json({ url: fileUrl });
+    } catch (error) {
+      res.status(400).json({ error: "Erreur lors de l'upload" });
+    }
+  });
+
   // Reassign order to another grossiste (after refusal)
   app.patch("/api/orders/:id/reassign", requireRole("admin", "delegue"), async (req, res) => {
     try {
@@ -934,6 +990,8 @@ export async function registerRoutes(
       } else {
         offers = [];
       }
+    } else if (user.role === "grossiste" && user.entityId) {
+      offers = await storage.getCommercialOffersForGrossiste(user.entityId);
     } else if (user.role === "pharmacie" && user.entityId) {
       offers = await storage.getCommercialOffersForPharmacie(user.entityId);
     } else {
@@ -972,6 +1030,39 @@ export async function registerRoutes(
       }
 
       const offer = await storage.createCommercialOffer(offerData);
+
+      const allUsers = await storage.getUsers();
+      const notifMessage = `Nouvelle offre : ${offerData.titre}`;
+
+      if (offerData.laboratoireId) {
+        const delegueIds = await storage.getDelegueIdsForLaboratoire(offerData.laboratoireId);
+        for (const dId of delegueIds) {
+          await storage.createNotification({ userId: dId, type: "in_app", titre: "Nouvelle offre commerciale", message: notifMessage });
+        }
+      }
+
+      if (offerData.pharmacieIds) {
+        try {
+          const parsed = JSON.parse(offerData.pharmacieIds);
+          if (parsed === "all") {
+            const pharmacieUsers = allUsers.filter(u => u.role === "pharmacie");
+            for (const pu of pharmacieUsers) {
+              await storage.createNotification({ userId: pu.id, type: "in_app", titre: "Nouvelle offre commerciale", message: notifMessage });
+            }
+          } else if (Array.isArray(parsed)) {
+            const pharmacieUsers = allUsers.filter(u => u.role === "pharmacie" && parsed.includes(u.entityId));
+            for (const pu of pharmacieUsers) {
+              await storage.createNotification({ userId: pu.id, type: "in_app", titre: "Nouvelle offre commerciale", message: notifMessage });
+            }
+          }
+        } catch {}
+      }
+
+      const grossisteUsers = allUsers.filter(u => u.role === "grossiste");
+      for (const gu of grossisteUsers) {
+        await storage.createNotification({ userId: gu.id, type: "in_app", titre: "Nouvelle offre commerciale", message: notifMessage });
+      }
+
       res.status(201).json(offer);
     } catch (error: any) {
       console.error("Error creating offer:", error?.message || error);
@@ -989,6 +1080,55 @@ export async function registerRoutes(
       res.json(offer);
     } catch (error) {
       res.status(400).json({ error: "Données invalides" });
+    }
+  });
+
+  app.patch("/api/offers/:id/toggle-active", requireRole("admin", "laboratoire"), async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const user = (req as any).user;
+      const existing = await storage.getCommercialOffer(id);
+      if (!existing) return res.status(404).json({ error: "Offre non trouvée" });
+      if (user.role === "laboratoire" && existing.laboratoireId !== user.entityId) {
+        return res.status(403).json({ error: "Accès non autorisé" });
+      }
+      const newActive = !existing.active;
+      const offer = await storage.updateCommercialOffer(id, { active: newActive } as any);
+      
+      const allUsers = await storage.getUsers();
+      const message = newActive ? `L'offre "${existing.titre}" a été activée` : `L'offre "${existing.titre}" a été désactivée`;
+      const titre = newActive ? "Offre activée" : "Offre désactivée";
+      
+      const delegueIds = await storage.getDelegueIdsForLaboratoire(existing.laboratoireId);
+      for (const dId of delegueIds) {
+        await storage.createNotification({ userId: dId, type: "in_app", titre, message });
+      }
+      
+      if (existing.pharmacieIds) {
+        try {
+          const parsed = JSON.parse(existing.pharmacieIds);
+          if (parsed === "all") {
+            const pharmacieUsers = allUsers.filter(u => u.role === "pharmacie");
+            for (const pu of pharmacieUsers) {
+              await storage.createNotification({ userId: pu.id, type: "in_app", titre, message });
+            }
+          } else if (Array.isArray(parsed)) {
+            const pharmacieUsers = allUsers.filter(u => u.role === "pharmacie" && parsed.includes(u.entityId));
+            for (const pu of pharmacieUsers) {
+              await storage.createNotification({ userId: pu.id, type: "in_app", titre, message });
+            }
+          }
+        } catch {}
+      }
+      
+      const grossisteUsers = allUsers.filter(u => u.role === "grossiste");
+      for (const gu of grossisteUsers) {
+        await storage.createNotification({ userId: gu.id, type: "in_app", titre, message });
+      }
+      
+      res.json(offer);
+    } catch (error) {
+      res.status(400).json({ error: "Erreur" });
     }
   });
 
@@ -1135,7 +1275,9 @@ export async function registerRoutes(
       laboratoireId = user.entityId || undefined;
     }
     
-    const stats = await storage.getFullStats(laboratoireId);
+    const dateFrom = req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined;
+    const dateTo = req.query.dateTo ? new Date(req.query.dateTo as string) : undefined;
+    const stats = await storage.getFullStats(laboratoireId, dateFrom, dateTo);
     res.json(stats);
   });
 

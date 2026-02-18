@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Entity, Order, Product } from "@shared/schema";
+import type { Entity, Product } from "@shared/schema";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Tag, Plus, Eye, Check, X, Loader2, ChevronsUpDown, Search } from "lucide-react";
+import { Tag, Plus, Eye, Check, X, Loader2, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -53,6 +52,8 @@ interface CommercialOffer {
   validee: boolean | null;
   valideeParLabo: boolean | null;
   valideeParPharmacie: boolean | null;
+  active: boolean | null;
+  quantiteMinimale: string | null;
   impactFinancier: string | null;
   createdAt: Date;
 }
@@ -95,11 +96,6 @@ function MultiPharmacySelector({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const doSearch = useCallback(async (q: string) => {
-    if (q.length < 2) {
-      setResults([]);
-      setHasSearched(false);
-      return;
-    }
     setLoading(true);
     try {
       const res = await fetch(`/api/entities/search?type=pharmacie&q=${encodeURIComponent(q)}`, {
@@ -135,12 +131,14 @@ function MultiPharmacySelector({
   };
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      doSearch("");
+    } else {
       setSearch("");
       setResults([]);
       setHasSearched(false);
     }
-  }, [open]);
+  }, [open, doSearch]);
 
   const displayText = allSelected 
     ? "Toutes les pharmacies" 
@@ -247,11 +245,6 @@ function MultiProductSelector({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const doSearch = useCallback(async (q: string) => {
-    if (q.length < 2) {
-      setResults([]);
-      setHasSearched(false);
-      return;
-    }
     setLoading(true);
     try {
       const res = await fetch(`/api/products/search?q=${encodeURIComponent(q)}`, {
@@ -295,12 +288,14 @@ function MultiProductSelector({
   };
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      doSearch("");
+    } else {
       setSearch("");
       setResults([]);
       setHasSearched(false);
     }
-  }, [open]);
+  }, [open, doSearch]);
 
   return (
     <div className="space-y-2">
@@ -401,12 +396,21 @@ export default function OffersPage() {
     queryKey: ["/api/products"],
   });
 
-  const { data: ordersList } = useQuery<Order[]>({
-    queryKey: ["/api/orders"],
-  });
-
   const canCreate = user?.role === "admin" || user?.role === "laboratoire" || user?.role === "delegue";
-  const canEdit = user?.role === "admin" || user?.role === "laboratoire";
+  const canEdit = true;
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("PATCH", `/api/offers/${id}/toggle-active`, {});
+    },
+    onSuccess: () => {
+      toast({ title: "Offre mise à jour" });
+      queryClient.invalidateQueries({ queryKey: ["/api/offers"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    },
+  });
 
   const validateMutation = useMutation({
     mutationFn: async ({ id, validee }: { id: string; validee: boolean }) => {
@@ -465,7 +469,6 @@ export default function OffersPage() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <CreateOfferForm
-                orders={ordersList || []}
                 onSuccess={() => {
                   setIsCreateOpen(false);
                   queryClient.invalidateQueries({ queryKey: ["/api/offers"] });
@@ -502,10 +505,10 @@ export default function OffersPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Titre</TableHead>
+                    <TableHead>Laboratoire</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Pharmacie(s)</TableHead>
-                    <TableHead>Produit(s)</TableHead>
-                    <TableHead>Validée</TableHead>
+                    <TableHead>Active</TableHead>
                     <TableHead>Date début</TableHead>
                     <TableHead>Date fin</TableHead>
                     {canEdit && <TableHead className="text-right">Actions</TableHead>}
@@ -517,17 +520,17 @@ export default function OffersPage() {
                       <TableCell className="font-medium" data-testid={`text-offer-titre-${offer.id}`}>
                         {offer.titre}
                       </TableCell>
+                      <TableCell data-testid={`text-offer-labo-${offer.id}`}>
+                        {entities?.find(e => e.id === offer.laboratoireId)?.nom || "-"}
+                      </TableCell>
                       <TableCell data-testid={`text-offer-type-${offer.id}`}>
                         <TypeBadge type={offer.type} />
                       </TableCell>
                       <TableCell data-testid={`text-offer-pharmacie-${offer.id}`}>
                         <span className="max-w-[150px] truncate block">{getPharmacieDisplay(offer)}</span>
                       </TableCell>
-                      <TableCell data-testid={`text-offer-products-${offer.id}`}>
-                        <span className="max-w-[150px] truncate block">{getProductDisplay(offer.productIds)}</span>
-                      </TableCell>
-                      <TableCell data-testid={`text-offer-validee-${offer.id}`}>
-                        {offer.validee ? (
+                      <TableCell data-testid={`text-offer-active-${offer.id}`}>
+                        {offer.active ? (
                           <Badge variant="outline" className="no-default-hover-elevate no-default-active-elevate bg-green-500/10 text-green-600">
                             <Check className="w-3 h-3 mr-1" /> Oui
                           </Badge>
@@ -557,7 +560,18 @@ export default function OffersPage() {
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
-                            {!offer.validee && (
+                            {(user?.role === "admin" || user?.role === "laboratoire") && (
+                              <Button
+                                size="sm"
+                                variant={offer.active ? "default" : "outline"}
+                                onClick={() => toggleActiveMutation.mutate(offer.id)}
+                                disabled={toggleActiveMutation.isPending}
+                                data-testid={`button-toggle-offer-${offer.id}`}
+                              >
+                                {offer.active ? (<><X className="w-4 h-4 mr-1" /> Désactiver</>) : (<><Check className="w-4 h-4 mr-1" /> Activer</>)}
+                              </Button>
+                            )}
+                            {!offer.validee && (user?.role === "admin" || user?.role === "laboratoire") && (
                               <Button
                                 size="sm"
                                 onClick={() => validateMutation.mutate({ id: offer.id, validee: true })}
@@ -590,11 +604,10 @@ export default function OffersPage() {
 }
 
 interface CreateOfferFormProps {
-  orders: Order[];
   onSuccess: () => void;
 }
 
-function CreateOfferForm({ orders, onSuccess }: CreateOfferFormProps) {
+function CreateOfferForm({ onSuccess }: CreateOfferFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [type, setType] = useState("");
@@ -603,7 +616,7 @@ function CreateOfferForm({ orders, onSuccess }: CreateOfferFormProps) {
   const [pharmacieIds, setPharmacieIds] = useState<string[]>([]);
   const [allPharmacies, setAllPharmacies] = useState(false);
   const [productIds, setProductIds] = useState<string[]>([]);
-  const [orderId, setOrderId] = useState("");
+  const [quantiteMinimale, setQuantiteMinimale] = useState<Record<string, string>>({});
   const [remisePourcentage, setRemisePourcentage] = useState("");
   const [packQuantite, setPackQuantite] = useState("");
   const [packGratuit, setPackGratuit] = useState("");
@@ -611,6 +624,9 @@ function CreateOfferForm({ orders, onSuccess }: CreateOfferFormProps) {
   const [conditions, setConditions] = useState("");
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
+
+  const { data: allProducts } = useQuery<Product[]>({ queryKey: ["/api/products"] });
+  const getProductName = (id: string) => allProducts?.find(p => p.id === id)?.nom || id.slice(0, 8);
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -648,7 +664,7 @@ function CreateOfferForm({ orders, onSuccess }: CreateOfferFormProps) {
       pharmacieId: !allPharmacies && pharmacieIds.length === 1 ? pharmacieIds[0] : null,
       pharmacieIds: allPharmacies ? JSON.stringify("all") : JSON.stringify(pharmacieIds),
       productIds: JSON.stringify(productIds),
-      orderId: (orderId && orderId !== "none") ? orderId : null,
+      quantiteMinimale: Object.keys(quantiteMinimale).length > 0 ? JSON.stringify(quantiteMinimale) : null,
       conditions: conditions || null,
       dateDebut: dateDebut ? new Date(dateDebut).toISOString() : new Date().toISOString(),
       dateFin: dateFin ? new Date(dateFin).toISOString() : null,
@@ -729,20 +745,24 @@ function CreateOfferForm({ orders, onSuccess }: CreateOfferFormProps) {
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Commande (optionnel)</label>
-          <Select value={orderId} onValueChange={setOrderId}>
-            <SelectTrigger data-testid="select-offer-order">
-              <SelectValue placeholder="Aucune" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Aucune</SelectItem>
-              {orders.map((o) => (
-                <SelectItem key={o.id} value={o.id}>{o.id.slice(0, 8)}...</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {type === "pack" && productIds.length > 0 && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Quantité minimale par produit</label>
+            {productIds.map(pid => (
+              <div key={pid} className="flex items-center gap-2" data-testid={`input-min-qty-${pid}`}>
+                <span className="text-sm flex-1 truncate">{getProductName(pid)}</span>
+                <Input
+                  type="number"
+                  min="1"
+                  className="w-24"
+                  value={quantiteMinimale[pid] || ""}
+                  onChange={(e) => setQuantiteMinimale(prev => ({ ...prev, [pid]: e.target.value }))}
+                  placeholder="Min"
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
         {type === "remise" && (
           <div className="space-y-2">
@@ -894,6 +914,10 @@ function OfferDetails({ offer, entities, products }: OfferDetailsProps) {
             <span className="text-sm text-muted-foreground">Validée</span>
             <p className="font-medium" data-testid="text-detail-validee">{offer.validee ? "Oui" : "Non"}</p>
           </div>
+          <div>
+            <span className="text-sm text-muted-foreground">Active</span>
+            <p className="font-medium" data-testid="text-detail-active">{offer.active ? "Oui" : "Non"}</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -943,6 +967,24 @@ function OfferDetails({ offer, entities, products }: OfferDetailsProps) {
           <div>
             <span className="text-sm text-muted-foreground">Quantité mise en place</span>
             <p className="font-medium">{offer.miseEnPlaceQuantite}</p>
+          </div>
+        )}
+
+        {offer.quantiteMinimale && (
+          <div>
+            <span className="text-sm text-muted-foreground">Quantité minimale par produit</span>
+            <div className="mt-1 space-y-1">
+              {(() => {
+                try {
+                  const mins = JSON.parse(offer.quantiteMinimale);
+                  return Object.entries(mins).map(([pid, qty]) => (
+                    <p key={pid} className="text-sm font-medium">
+                      {products.find(p => p.id === pid)?.nom || pid.slice(0, 8)}: {qty as string}
+                    </p>
+                  ));
+                } catch { return null; }
+              })()}
+            </div>
           </div>
         )}
 
