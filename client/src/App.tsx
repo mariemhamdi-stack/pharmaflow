@@ -17,6 +17,7 @@ const OrdersPage = lazy(() => import("@/pages/orders"));
 const ProductsPage = lazy(() => import("@/pages/products"));
 const UsersPage = lazy(() => import("@/pages/users"));
 const EntitiesPage = lazy(() => import("@/pages/entities"));
+const GrossistesPage = lazy(() => import("@/pages/grossistes"));
 const NotificationsPage = lazy(() => import("@/pages/notifications"));
 const HistoryPage = lazy(() => import("@/pages/history"));
 const StatsPage = lazy(() => import("@/pages/stats"));
@@ -78,6 +79,11 @@ function Router() {
       <Route path="/entities">
         <RoleRoute roles={["admin", "laboratoire"]}>
           <EntitiesPage />
+        </RoleRoute>
+      </Route>
+      <Route path="/grossistes">
+        <RoleRoute roles={["admin", "laboratoire"]}>
+          <GrossistesPage />
         </RoleRoute>
       </Route>
       <Route path="/offers" component={OffersPage} />

@@ -10,7 +10,8 @@ import {
   TrendingUp,
   AlertTriangle,
   Package,
-  Truck
+  Truck,
+  Store
 } from "lucide-react";
 
 interface DashboardStats {
@@ -134,9 +135,15 @@ export default function DashboardPage() {
             />
             <QuickAction
               href="/entities"
-              icon={Truck}
+              icon={Store}
               label="Liste de pharmacies"
               color="bg-chart-4/20 text-chart-4"
+            />
+            <QuickAction
+              href="/grossistes"
+              icon={Truck}
+              label="Liste de grossistes"
+              color="bg-chart-3/20 text-chart-3"
             />
           </CardContent>
         </Card>

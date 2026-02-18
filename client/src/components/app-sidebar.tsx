@@ -27,7 +27,9 @@ import {
   BarChart3,
   Tag,
   Megaphone,
-  MessageSquare
+  MessageSquare,
+  Store,
+  Truck
 } from "lucide-react";
 
 export function AppSidebar() {
@@ -43,7 +45,8 @@ export function AppSidebar() {
       return [
         ...baseItems,
         { title: "Utilisateurs", url: "/users", icon: Users },
-        { title: "Liste de pharmacies", url: "/entities", icon: Building2 },
+        { title: "Liste de pharmacies", url: "/entities", icon: Store },
+        { title: "Liste de grossistes", url: "/grossistes", icon: Truck },
         { title: "Produits", url: "/products", icon: Package },
         { title: "Commandes", url: "/orders", icon: ShoppingCart },
         { title: "Offres commerciales", url: "/offers", icon: Tag },
@@ -57,7 +60,8 @@ export function AppSidebar() {
       return [
         ...baseItems,
         { title: "Utilisateurs", url: "/users", icon: Users },
-        { title: "Liste de pharmacies", url: "/entities", icon: Building2 },
+        { title: "Liste de pharmacies", url: "/entities", icon: Store },
+        { title: "Liste de grossistes", url: "/grossistes", icon: Truck },
         { title: "Produits", url: "/products", icon: Package },
         { title: "Commandes", url: "/orders", icon: ShoppingCart },
         { title: "Offres commerciales", url: "/offers", icon: Tag },

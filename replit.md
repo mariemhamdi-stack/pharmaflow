@@ -129,6 +129,12 @@ npm run db:push   # Appliquer les migrations
 ```
 
 ## Recent Changes
+- 2026-02-18: Séparation pharmacies et grossistes
+  - Page "Liste de pharmacies" filtre uniquement les pharmacies
+  - Nouveaux champs pharmacie : classification, propriétaire, pharmacien responsable, préparateurs (multiples)
+  - Nouvelle page "Liste de grossistes" dédiée aux grossistes
+  - Navigation mise à jour avec icônes distinctes (Store/Truck)
+  - Corrections accents français dans toute l'application
 - 2026-02-10: Mise a jour majeure
   - Double validation: delegue valide puis pharmacie valide avant envoi au grossiste
   - Reattribution de commandes apres refus grossiste
