@@ -57,7 +57,7 @@ export default function StatsPage() {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground" data-testid="text-stats-title">Statistiques</h1>
-        <p className="text-muted-foreground mt-1">Analyse des performances et indicateurs cles</p>
+        <p className="text-muted-foreground mt-1">Analyse des performances et indicateurs clés</p>
       </div>
 
       <Card>
@@ -69,7 +69,7 @@ export default function StatsPage() {
         <CardContent>
           <div className="flex flex-wrap items-center gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Date debut</label>
+              <label className="text-xs text-muted-foreground">Date début</label>
               <Input
                 type="date"
                 value={dateFrom}
@@ -97,17 +97,17 @@ export default function StatsPage() {
                 <SelectContent>
                   <SelectItem value="all">Tous les statuts</SelectItem>
                   <SelectItem value="brouillon">Brouillon</SelectItem>
-                  <SelectItem value="validee_delegue">Validee delegue</SelectItem>
-                  <SelectItem value="validee_pharmacie">Validee pharmacie</SelectItem>
-                  <SelectItem value="envoyee">Envoyee</SelectItem>
-                  <SelectItem value="acceptee">Acceptee</SelectItem>
-                  <SelectItem value="refusee">Refusee</SelectItem>
-                  <SelectItem value="partiellement_acceptee">Partiellement acceptee</SelectItem>
-                  <SelectItem value="en_preparation">En preparation</SelectItem>
-                  <SelectItem value="livree">Livree</SelectItem>
-                  <SelectItem value="cloturee">Cloturee</SelectItem>
+                  <SelectItem value="validee_delegue">Validée délégué</SelectItem>
+                  <SelectItem value="validee_pharmacie">Validée pharmacie</SelectItem>
+                  <SelectItem value="envoyee">Envoyée</SelectItem>
+                  <SelectItem value="acceptee">Acceptée</SelectItem>
+                  <SelectItem value="refusee">Refusée</SelectItem>
+                  <SelectItem value="partiellement_acceptee">Partiellement acceptée</SelectItem>
+                  <SelectItem value="en_preparation">En préparation</SelectItem>
+                  <SelectItem value="livree">Livrée</SelectItem>
+                  <SelectItem value="cloturee">Clôturée</SelectItem>
                   <SelectItem value="litige">Litige</SelectItem>
-                  <SelectItem value="annulee">Annulee</SelectItem>
+                  <SelectItem value="annulee">Annulée</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -138,17 +138,17 @@ export default function StatsPage() {
           isLoading={isLoading}
         />
         <StatCard
-          title="Delai moyen"
+          title="Délai moyen"
           value={`${stats?.avgProcessingTime || 0}h`}
           icon={Clock}
-          description="De l'envoi a l'acceptation"
+          description="De l'envoi à l'acceptation"
           isLoading={isLoading}
         />
         <StatCard
           title="Taux d'acceptation"
           value={`${100 - (stats?.refusalRate || 0)}%`}
           icon={CheckCircle2}
-          description="Commandes acceptees"
+          description="Commandes acceptées"
           isLoading={isLoading}
           trend="up"
         />
@@ -156,7 +156,7 @@ export default function StatsPage() {
           title="Taux de refus"
           value={`${stats?.refusalRate || 0}%`}
           icon={XCircle}
-          description="Commandes refusees"
+          description="Commandes refusées"
           isLoading={isLoading}
           trend={stats?.refusalRate && stats.refusalRate > 10 ? "down" : "up"}
         />
@@ -167,9 +167,9 @@ export default function StatsPage() {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
-              Repartition par statut
+              Répartition par statut
             </CardTitle>
-            <CardDescription>Distribution des commandes par etat</CardDescription>
+            <CardDescription>Distribution des commandes par état</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -218,7 +218,7 @@ export default function StatsPage() {
               </div>
             ) : (filteredGrossistes || []).length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                Aucune donnee disponible
+                Aucune donnée disponible
               </div>
             ) : (
               <div className="space-y-4">
@@ -246,7 +246,7 @@ export default function StatsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Evolution mensuelle</CardTitle>
+          <CardTitle className="text-lg">Évolution mensuelle</CardTitle>
           <CardDescription>Nombre de commandes par mois</CardDescription>
         </CardHeader>
         <CardContent>
@@ -254,7 +254,7 @@ export default function StatsPage() {
             <Skeleton className="h-48 w-full" />
           ) : stats?.ordersByMonth?.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              Aucune donnee disponible
+              Aucune donnée disponible
             </div>
           ) : (
             <div className="flex items-end gap-2 h-48">

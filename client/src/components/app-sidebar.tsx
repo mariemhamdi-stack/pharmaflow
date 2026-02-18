@@ -43,7 +43,7 @@ export function AppSidebar() {
       return [
         ...baseItems,
         { title: "Utilisateurs", url: "/users", icon: Users },
-        { title: "Entités", url: "/entities", icon: Building2 },
+        { title: "Liste de pharmacies", url: "/entities", icon: Building2 },
         { title: "Produits", url: "/products", icon: Package },
         { title: "Commandes", url: "/orders", icon: ShoppingCart },
         { title: "Offres commerciales", url: "/offers", icon: Tag },
@@ -57,7 +57,7 @@ export function AppSidebar() {
       return [
         ...baseItems,
         { title: "Utilisateurs", url: "/users", icon: Users },
-        { title: "Entités", url: "/entities", icon: Building2 },
+        { title: "Liste de pharmacies", url: "/entities", icon: Building2 },
         { title: "Produits", url: "/products", icon: Package },
         { title: "Commandes", url: "/orders", icon: ShoppingCart },
         { title: "Offres commerciales", url: "/offers", icon: Tag },

@@ -135,7 +135,7 @@ export default function DashboardPage() {
             <QuickAction
               href="/entities"
               icon={Truck}
-              label="Entités"
+              label="Liste de pharmacies"
               color="bg-chart-4/20 text-chart-4"
             />
           </CardContent>

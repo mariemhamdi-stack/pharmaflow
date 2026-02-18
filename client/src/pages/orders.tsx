@@ -254,7 +254,7 @@ export default function OrdersPage() {
                             </a>
                           )}
                           {order.bonReceptionUrl && (
-                            <a href={order.bonReceptionUrl} target="_blank" rel="noopener noreferrer" title="Bon de reception" className="text-chart-4 underline" data-testid={`link-br-${order.id}`}>
+                            <a href={order.bonReceptionUrl} target="_blank" rel="noopener noreferrer" title="Bon de réception" className="text-chart-4 underline" data-testid={`link-br-${order.id}`}>
                               <FileText className="w-4 h-4" />
                             </a>
                           )}
@@ -689,7 +689,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
         body: formData,
         credentials: "include"
       });
-      if (!uploadRes.ok) throw new Error("Erreur lors du televersement du BL");
+      if (!uploadRes.ok) throw new Error("Erreur lors du téléversement du BL");
       const statusRes = await apiRequest("PATCH", `/api/orders/${order.id}/status`, { status: "livree" });
       return statusRes;
     },
@@ -714,12 +714,12 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
         body: formData,
         credentials: "include"
       });
-      if (!uploadRes.ok) throw new Error("Erreur lors du televersement du BR");
+      if (!uploadRes.ok) throw new Error("Erreur lors du téléversement du BR");
       const statusRes = await apiRequest("PATCH", `/api/orders/${order.id}/status`, { status: "cloturee" });
       return statusRes;
     },
     onSuccess: () => {
-      toast({ title: "Commande cloturee avec BR" });
+      toast({ title: "Commande clôturée avec BR" });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       setShowCloseDialog(false);
       setBrFile(null);
@@ -919,7 +919,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
             <DialogHeader>
               <DialogTitle>Acceptation partielle</DialogTitle>
               <DialogDescription>
-                Indiquez les quantites acceptees pour chaque produit. Les quantites refusees seront calculees automatiquement.
+                Indiquez les quantités acceptées pour chaque produit. Les quantités refusées seront calculées automatiquement.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 max-h-[400px] overflow-y-auto">
@@ -929,10 +929,10 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="min-w-0">
                         <p className="font-medium text-sm truncate">{line.productName}</p>
-                        <p className="text-xs text-muted-foreground">Commandee : {line.quantiteCommandee}</p>
+                        <p className="text-xs text-muted-foreground">Commandée : {line.quantiteCommandee}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <label className="text-xs text-muted-foreground whitespace-nowrap">Acceptee :</label>
+                        <label className="text-xs text-muted-foreground whitespace-nowrap">Acceptée :</label>
                         <Input
                           type="number"
                           min={0}
@@ -948,7 +948,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
                     </div>
                     {(parseInt(line.quantiteAcceptee) || 0) < line.quantiteCommandee && (
                       <p className="text-xs text-destructive mt-1">
-                        Refusee : {line.quantiteCommandee - (parseInt(line.quantiteAcceptee) || 0)}
+                        Refusée : {line.quantiteCommandee - (parseInt(line.quantiteAcceptee) || 0)}
                       </p>
                     )}
                   </CardContent>
@@ -1109,8 +1109,8 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
         <Dialog open={showDeliveryDialog} onOpenChange={(open) => { if (!open) { setShowDeliveryDialog(false); setBlFile(null); } }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Televersez le bon de livraison</DialogTitle>
-              <DialogDescription>Le bon de livraison (BL) est obligatoire avant de marquer la commande comme livree.</DialogDescription>
+              <DialogTitle>Téléversez le bon de livraison</DialogTitle>
+              <DialogDescription>Le bon de livraison (BL) est obligatoire avant de marquer la commande comme livrée.</DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
               <label className="cursor-pointer block">
@@ -1138,7 +1138,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
                 disabled={!blFile || uploadAndDeliver.isPending}
                 data-testid="button-confirm-delivery"
               >
-                {uploadAndDeliver.isPending ? "Envoi..." : "Televerser et livrer"}
+                {uploadAndDeliver.isPending ? "Envoi..." : "Téléverser et livrer"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1181,8 +1181,8 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
         <Dialog open={showCloseDialog} onOpenChange={(open) => { if (!open) { setShowCloseDialog(false); setBrFile(null); } }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Televersez le bon de reception</DialogTitle>
-              <DialogDescription>Le bon de reception (BR) est obligatoire avant de cloturer la commande.</DialogDescription>
+              <DialogTitle>Téléversez le bon de réception</DialogTitle>
+              <DialogDescription>Le bon de réception (BR) est obligatoire avant de clôturer la commande.</DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
               <label className="cursor-pointer block">
@@ -1210,7 +1210,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
                 disabled={!brFile || uploadBRAndClose.isPending}
                 data-testid="button-confirm-close"
               >
-                {uploadBRAndClose.isPending ? "Envoi..." : "Televerser et cloturer"}
+                {uploadBRAndClose.isPending ? "Envoi..." : "Téléverser et clôturer"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1409,9 +1409,9 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Produit</TableHead>
-                  <TableHead className="text-right">Commandee</TableHead>
-                  <TableHead className="text-right">Acceptee</TableHead>
-                  <TableHead className="text-right">Refusee</TableHead>
+                  <TableHead className="text-right">Commandée</TableHead>
+                  <TableHead className="text-right">Acceptée</TableHead>
+                  <TableHead className="text-right">Refusée</TableHead>
                   <TableHead>Avantages</TableHead>
                   <TableHead>Statut</TableHead>
                 </TableRow>
