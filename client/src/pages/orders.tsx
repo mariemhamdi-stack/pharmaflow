@@ -629,9 +629,13 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
   const [showPartialDialog, setShowPartialDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showLitigeDialog, setShowLitigeDialog] = useState(false);
+  const [showDeliveryDialog, setShowDeliveryDialog] = useState(false);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState<{ status: string; title: string; message: string } | null>(null);
   const [litigeMotif, setLitigeMotif] = useState("");
   const [refuseComment, setRefuseComment] = useState("");
+  const [blFile, setBlFile] = useState<File | null>(null);
+  const [brFile, setBrFile] = useState<File | null>(null);
   const [newGrossisteId, setNewGrossisteId] = useState("");
   const [partialLines, setPartialLines] = useState<{ id: string; productName: string; quantiteCommandee: number; quantiteAcceptee: string }[]>([]);
 
@@ -672,6 +676,56 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
     },
     onError: (error: any) => {
       toast({ title: "Erreur", description: error.message || "Impossible d'annuler", variant: "destructive" });
+    }
+  });
+
+  const uploadAndDeliver = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("document", file);
+      formData.append("type", "bon_livraison");
+      const uploadRes = await fetch(`/api/orders/${order.id}/upload`, {
+        method: "POST",
+        body: formData,
+        credentials: "include"
+      });
+      if (!uploadRes.ok) throw new Error("Erreur lors du televersement du BL");
+      const statusRes = await apiRequest("PATCH", `/api/orders/${order.id}/status`, { status: "livree" });
+      return statusRes;
+    },
+    onSuccess: () => {
+      toast({ title: "Commande livrée avec BL" });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setShowDeliveryDialog(false);
+      setBlFile(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const uploadBRAndClose = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("document", file);
+      formData.append("type", "bon_reception");
+      const uploadRes = await fetch(`/api/orders/${order.id}/upload`, {
+        method: "POST",
+        body: formData,
+        credentials: "include"
+      });
+      if (!uploadRes.ok) throw new Error("Erreur lors du televersement du BR");
+      const statusRes = await apiRequest("PATCH", `/api/orders/${order.id}/status`, { status: "cloturee" });
+      return statusRes;
+    },
+    onSuccess: () => {
+      toast({ title: "Commande cloturee avec BR" });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setShowCloseDialog(false);
+      setBrFile(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
     }
   });
 
@@ -1038,14 +1092,57 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
       <>
         <Button
           size="sm"
-          onClick={() => setShowConfirmDialog({ status: "livree", title: "Marquer comme livrée", message: "Êtes-vous sûr de vouloir marquer cette commande comme livrée ?" })}
-          disabled={updateStatusMutation.isPending}
+          onClick={() => {
+            if (order.bonLivraisonUrl) {
+              setShowConfirmDialog({ status: "livree", title: "Marquer comme livrée", message: "Êtes-vous sûr de vouloir marquer cette commande comme livrée ?" });
+            } else {
+              setShowDeliveryDialog(true);
+            }
+          }}
+          disabled={updateStatusMutation.isPending || uploadAndDeliver.isPending}
           data-testid={`button-deliver-order-${order.id}`}
         >
           <Truck className="w-4 h-4 mr-1" />
           Livrer
         </Button>
         {confirmDialog}
+        <Dialog open={showDeliveryDialog} onOpenChange={(open) => { if (!open) { setShowDeliveryDialog(false); setBlFile(null); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Televersez le bon de livraison</DialogTitle>
+              <DialogDescription>Le bon de livraison (BL) est obligatoire avant de marquer la commande comme livree.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <label className="cursor-pointer block">
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="hidden"
+                  onChange={(e) => setBlFile(e.target.files?.[0] || null)}
+                  data-testid="input-upload-bl-delivery"
+                />
+                <div className="border-2 border-dashed rounded-md p-6 text-center hover-elevate cursor-pointer">
+                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  {blFile ? (
+                    <p className="text-sm font-medium">{blFile.name}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Cliquez pour selectionner le BL (PDF, JPG, PNG)</p>
+                  )}
+                </div>
+              </label>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setShowDeliveryDialog(false); setBlFile(null); }}>Annuler</Button>
+              <Button
+                onClick={() => blFile && uploadAndDeliver.mutate(blFile)}
+                disabled={!blFile || uploadAndDeliver.isPending}
+                data-testid="button-confirm-delivery"
+              >
+                {uploadAndDeliver.isPending ? "Envoi..." : "Televerser et livrer"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </>
     );
   }
@@ -1058,8 +1155,14 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
           <Button
             size="sm"
             variant="default"
-            onClick={() => setShowConfirmDialog({ status: "cloturee", title: "Clôturer la commande", message: "Êtes-vous sûr de vouloir confirmer la réception et clôturer cette commande ?" })}
-            disabled={updateStatusMutation.isPending}
+            onClick={() => {
+              if (order.bonReceptionUrl) {
+                setShowConfirmDialog({ status: "cloturee", title: "Clôturer la commande", message: "Êtes-vous sûr de vouloir confirmer la réception et clôturer cette commande ?" });
+              } else {
+                setShowCloseDialog(true);
+              }
+            }}
+            disabled={updateStatusMutation.isPending || uploadBRAndClose.isPending}
             data-testid={`button-close-order-${order.id}`}
           >
             <Check className="w-4 h-4 mr-1" />
@@ -1075,6 +1178,43 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
             <AlertTriangle className="w-4 h-4" />
           </Button>
         </div>
+        <Dialog open={showCloseDialog} onOpenChange={(open) => { if (!open) { setShowCloseDialog(false); setBrFile(null); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Televersez le bon de reception</DialogTitle>
+              <DialogDescription>Le bon de reception (BR) est obligatoire avant de cloturer la commande.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <label className="cursor-pointer block">
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="hidden"
+                  onChange={(e) => setBrFile(e.target.files?.[0] || null)}
+                  data-testid="input-upload-br-close"
+                />
+                <div className="border-2 border-dashed rounded-md p-6 text-center hover-elevate cursor-pointer">
+                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  {brFile ? (
+                    <p className="text-sm font-medium">{brFile.name}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Cliquez pour selectionner le BR (PDF, JPG, PNG)</p>
+                  )}
+                </div>
+              </label>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setShowCloseDialog(false); setBrFile(null); }}>Annuler</Button>
+              <Button
+                onClick={() => brFile && uploadBRAndClose.mutate(brFile)}
+                disabled={!brFile || uploadBRAndClose.isPending}
+                data-testid="button-confirm-close"
+              >
+                {uploadBRAndClose.isPending ? "Envoi..." : "Televerser et cloturer"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <Dialog open={showLitigeDialog} onOpenChange={setShowLitigeDialog}>
           <DialogContent>
             <DialogHeader>
@@ -1392,7 +1532,7 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
                     <p className="text-xs text-muted-foreground">Non fourni</p>
                   )}
                 </div>
-                {(userRole === "grossiste" || userRole === "admin") && ["en_preparation", "livree", "cloturee"].includes(order.status) && (
+                {(userRole === "grossiste" || userRole === "admin") && ["acceptee", "partiellement_acceptee", "en_preparation", "livree", "cloturee"].includes(order.status) && (
                   <label className="cursor-pointer">
                     <input
                       type="file"

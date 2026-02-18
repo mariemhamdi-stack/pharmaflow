@@ -685,35 +685,55 @@ export async function registerRoutes(
         }
       }
       
+      // Require BL upload before marking as livree
+      if (status === "livree" && !order.bonLivraisonUrl) {
+        return res.status(400).json({ error: "Veuillez téléverser le bon de livraison avant de marquer la commande comme livrée" });
+      }
+
+      // Require BR upload before closing
+      if (status === "cloturee" && !order.bonReceptionUrl) {
+        return res.status(400).json({ error: "Veuillez téléverser le bon de réception avant de clôturer la commande" });
+      }
+
       // Auto-transition: validee_pharmacie → envoyee (automatic)
       if (status === "validee_pharmacie") {
-        await storage.updateOrderStatus(id, "envoyee", user.id, "system" as any, "Transmission automatique au grossiste");
+        try {
+          await storage.updateOrderStatus(id, "envoyee", user.id, "system" as any, "Transmission automatique au grossiste");
+        } catch (err) {
+          console.error("Auto-transition error:", err);
+        }
         
-        // Notify grossiste
-        const grossisteUsers = await storage.getUsers();
-        const grossisteUsersFiltered = grossisteUsers.filter(u => u.role === "grossiste" && u.entityId === order.grossisteId);
-        for (const gu of grossisteUsersFiltered) {
-          await storage.createNotification({
-            userId: gu.id,
-            orderId: id,
-            type: "in_app",
-            titre: "Nouvelle commande",
-            message: `Une nouvelle commande a été validée et transmise`
-          });
-          if (gu.email) {
-            const entities = await storage.getEntities();
-            const pharmacieEntity = entities.find(e => e.id === order.pharmacieId);
-            const grossisteEntity = entities.find(e => e.id === order.grossisteId);
-            await sendOrderStatusEmail(gu.email, `${gu.prenom} ${gu.nom}`, 'grossiste', {
+        try {
+          const grossisteUsers = await storage.getUsers();
+          const grossisteUsersFiltered = grossisteUsers.filter(u => u.role === "grossiste" && u.entityId === order.grossisteId);
+          for (const gu of grossisteUsersFiltered) {
+            await storage.createNotification({
+              userId: gu.id,
               orderId: id,
-              pharmacieName: pharmacieEntity?.nom || 'Pharmacie',
-              grossisteName: grossisteEntity?.nom || 'Grossiste',
-              status: 'envoyee'
+              type: "in_app",
+              titre: "Nouvelle commande",
+              message: `Une nouvelle commande a été validée et transmise`
             });
+            if (gu.email) {
+              const entities = await storage.getEntities();
+              const pharmacieEntity = entities.find(e => e.id === order.pharmacieId);
+              const grossisteEntity = entities.find(e => e.id === order.grossisteId);
+              try {
+                await sendOrderStatusEmail(gu.email, `${gu.prenom} ${gu.nom}`, 'grossiste', {
+                  orderId: id,
+                  pharmacieName: pharmacieEntity?.nom || 'Pharmacie',
+                  grossisteName: grossisteEntity?.nom || 'Grossiste',
+                  status: 'envoyee'
+                });
+              } catch (emailErr) {
+                console.error("Email notification error:", emailErr);
+              }
+            }
           }
+        } catch (notifErr) {
+          console.error("Notification error:", notifErr);
         }
 
-        // Re-fetch the updated order
         const finalOrder = await storage.getOrder(id);
         return res.json(finalOrder);
       }
@@ -731,85 +751,87 @@ export async function registerRoutes(
         commentaire
       };
       
-      // Notifications based on status
-      if (status === "validee_delegue") {
-        // Notify pharmacie to validate
-        const pharmacieUsers = await storage.getUsers();
-        const pharmacieUsersFiltered = pharmacieUsers.filter(u => u.role === "pharmacie" && u.entityId === order.pharmacieId);
-        for (const pu of pharmacieUsersFiltered) {
+      // Notifications based on status (non-blocking)
+      try {
+        if (status === "validee_delegue") {
+          const pharmacieUsers = await storage.getUsers();
+          const pharmacieUsersFiltered = pharmacieUsers.filter(u => u.role === "pharmacie" && u.entityId === order.pharmacieId);
+          for (const pu of pharmacieUsersFiltered) {
+            await storage.createNotification({
+              userId: pu.id,
+              orderId: id,
+              type: "in_app",
+              titre: "Commande à valider",
+              message: `Une commande attend votre validation`
+            });
+          }
+        } else if (status === "acceptee" || status === "partiellement_acceptee") {
+          const delegue = await storage.getUser(order.delegueId);
           await storage.createNotification({
-            userId: pu.id,
+            userId: order.delegueId,
             orderId: id,
             type: "in_app",
-            titre: "Commande à valider",
-            message: `Une commande attend votre validation`
+            titre: status === "acceptee" ? "Commande acceptée" : "Commande partiellement acceptée",
+            message: `Votre commande a été ${status === "acceptee" ? "acceptée" : "partiellement acceptée"} par le grossiste`
           });
-        }
-      } else if (status === "acceptee" || status === "partiellement_acceptee") {
-        const delegue = await storage.getUser(order.delegueId);
-        await storage.createNotification({
-          userId: order.delegueId,
-          orderId: id,
-          type: "in_app",
-          titre: status === "acceptee" ? "Commande acceptée" : "Commande partiellement acceptée",
-          message: `Votre commande a été ${status === "acceptee" ? "acceptée" : "partiellement acceptée"} par le grossiste`
-        });
-        if (delegue?.email) {
-          await sendOrderStatusEmail(delegue.email, `${delegue.prenom} ${delegue.nom}`, 'delegue', emailOrderData);
-        }
-      } else if (status === "refusee") {
-        const delegue = await storage.getUser(order.delegueId);
-        await storage.createNotification({
-          userId: order.delegueId,
-          orderId: id,
-          type: "in_app",
-          titre: "Commande refusée",
-          message: `Votre commande a été refusée par le grossiste. Motif : ${commentaire}`
-        });
-        // Also notify laboratoire
-        const laboUsers = await storage.getUsers();
-        const laboUsersFiltered = laboUsers.filter(u => u.role === "laboratoire" && u.entityId === order.laboratoireId);
-        for (const lu of laboUsersFiltered) {
+          if (delegue?.email) {
+            try { await sendOrderStatusEmail(delegue.email, `${delegue.prenom} ${delegue.nom}`, 'delegue', emailOrderData); } catch(e) { console.error("Email error:", e); }
+          }
+        } else if (status === "refusee") {
+          const delegue = await storage.getUser(order.delegueId);
           await storage.createNotification({
-            userId: lu.id,
+            userId: order.delegueId,
             orderId: id,
             type: "in_app",
             titre: "Commande refusée",
-            message: `Une commande a été refusée par le grossiste. Motif : ${commentaire}`
+            message: `Votre commande a été refusée par le grossiste. Motif : ${commentaire}`
           });
-        }
-        if (delegue?.email) {
-          await sendOrderStatusEmail(delegue.email, `${delegue.prenom} ${delegue.nom}`, 'delegue', emailOrderData);
-        }
-      } else if (status === "livree") {
-        const pharmacieUsers = await storage.getUsers();
-        const pharmacieUsersFiltered = pharmacieUsers.filter(u => u.role === "pharmacie" && u.entityId === order.pharmacieId);
-        for (const pu of pharmacieUsersFiltered) {
-          await storage.createNotification({
-            userId: pu.id,
-            orderId: id,
-            type: "in_app",
-            titre: "Commande livrée",
-            message: `Votre commande a été livrée`
-          });
-          if (pu.email) {
-            await sendOrderStatusEmail(pu.email, `${pu.prenom} ${pu.nom}`, 'pharmacie', emailOrderData);
+          const laboUsers = await storage.getUsers();
+          const laboUsersFiltered = laboUsers.filter(u => u.role === "laboratoire" && u.entityId === order.laboratoireId);
+          for (const lu of laboUsersFiltered) {
+            await storage.createNotification({
+              userId: lu.id,
+              orderId: id,
+              type: "in_app",
+              titre: "Commande refusée",
+              message: `Une commande a été refusée par le grossiste. Motif : ${commentaire}`
+            });
+          }
+          if (delegue?.email) {
+            try { await sendOrderStatusEmail(delegue.email, `${delegue.prenom} ${delegue.nom}`, 'delegue', emailOrderData); } catch(e) { console.error("Email error:", e); }
+          }
+        } else if (status === "livree") {
+          const pharmacieUsers = await storage.getUsers();
+          const pharmacieUsersFiltered = pharmacieUsers.filter(u => u.role === "pharmacie" && u.entityId === order.pharmacieId);
+          for (const pu of pharmacieUsersFiltered) {
+            await storage.createNotification({
+              userId: pu.id,
+              orderId: id,
+              type: "in_app",
+              titre: "Commande livrée",
+              message: `Votre commande a été livrée`
+            });
+            if (pu.email) {
+              try { await sendOrderStatusEmail(pu.email, `${pu.prenom} ${pu.nom}`, 'pharmacie', emailOrderData); } catch(e) { console.error("Email error:", e); }
+            }
+          }
+        } else if (status === "litige") {
+          const laboUsers = await storage.getUsers();
+          const laboUsersFiltered = laboUsers.filter(u => 
+            (u.role === "laboratoire" || u.role === "delegue") && u.entityId === order.laboratoireId
+          );
+          for (const lu of laboUsersFiltered) {
+            await storage.createNotification({
+              userId: lu.id,
+              orderId: id,
+              type: "in_app",
+              titre: "Litige ouvert",
+              message: `Un litige a été ouvert sur une commande`
+            });
           }
         }
-      } else if (status === "litige") {
-        const laboUsers = await storage.getUsers();
-        const laboUsersFiltered = laboUsers.filter(u => 
-          (u.role === "laboratoire" || u.role === "delegue") && u.entityId === order.laboratoireId
-        );
-        for (const lu of laboUsersFiltered) {
-          await storage.createNotification({
-            userId: lu.id,
-            orderId: id,
-            type: "in_app",
-            titre: "Litige ouvert",
-            message: `Un litige a été ouvert sur une commande`
-          });
-        }
+      } catch (notifErr) {
+        console.error("Notification error (non-blocking):", notifErr);
       }
       
       res.json(updated);
