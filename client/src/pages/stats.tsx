@@ -1,28 +1,133 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart3, TrendingUp, TrendingDown, Clock, XCircle, CheckCircle2, Package } from "lucide-react";
+import { BarChart3, TrendingUp, TrendingDown, Clock, XCircle, CheckCircle2, Package, Filter } from "lucide-react";
+import type { Entity } from "@shared/schema";
 
 interface Stats {
   totalOrders: number;
   ordersByStatus: Record<string, number>;
   avgProcessingTime: number;
   refusalRate: number;
-  ordersByGrossiste: { grossiste: string; count: number; refusalRate: number }[];
+  ordersByGrossiste: { grossiste: string; grossisteId?: string; count: number; refusalRate: number }[];
   ordersByMonth: { month: string; count: number }[];
 }
 
 export default function StatsPage() {
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [grossisteFilter, setGrossisteFilter] = useState("all");
+
+  const statsUrl = (() => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    const qs = params.toString();
+    return qs ? `/api/stats?${qs}` : "/api/stats";
+  })();
+
   const { data: stats, isLoading } = useQuery<Stats>({
-    queryKey: ["/api/stats"]
+    queryKey: [statsUrl],
   });
+
+  const { data: entities } = useQuery<Entity[]>({
+    queryKey: ["/api/entities"],
+  });
+
+  const grossistes = entities?.filter(e => e.type === "grossiste") || [];
+
+  const filteredByStatus = statusFilter === "all"
+    ? stats?.ordersByStatus
+    : stats?.ordersByStatus
+      ? Object.fromEntries(Object.entries(stats.ordersByStatus).filter(([s]) => s === statusFilter))
+      : {};
+
+  const filteredGrossistes = grossisteFilter === "all"
+    ? stats?.ordersByGrossiste
+    : stats?.ordersByGrossiste?.filter(g => {
+        const matchEntity = grossistes.find(e => e.id === grossisteFilter);
+        return matchEntity ? g.grossiste === matchEntity.nom : false;
+      });
 
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Statistiques</h1>
-        <p className="text-muted-foreground mt-1">Analyse des performances et indicateurs clés</p>
+        <h1 className="text-3xl font-bold text-foreground" data-testid="text-stats-title">Statistiques</h1>
+        <p className="text-muted-foreground mt-1">Analyse des performances et indicateurs cles</p>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Filter className="w-4 h-4" /> Filtres
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Date debut</label>
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="w-40"
+                data-testid="input-stats-date-from"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Date fin</label>
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="w-40"
+                data-testid="input-stats-date-to"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Statut</label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48" data-testid="select-stats-status">
+                  <SelectValue placeholder="Tous les statuts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  <SelectItem value="brouillon">Brouillon</SelectItem>
+                  <SelectItem value="validee_delegue">Validee delegue</SelectItem>
+                  <SelectItem value="validee_pharmacie">Validee pharmacie</SelectItem>
+                  <SelectItem value="envoyee">Envoyee</SelectItem>
+                  <SelectItem value="acceptee">Acceptee</SelectItem>
+                  <SelectItem value="refusee">Refusee</SelectItem>
+                  <SelectItem value="partiellement_acceptee">Partiellement acceptee</SelectItem>
+                  <SelectItem value="en_preparation">En preparation</SelectItem>
+                  <SelectItem value="livree">Livree</SelectItem>
+                  <SelectItem value="cloturee">Cloturee</SelectItem>
+                  <SelectItem value="litige">Litige</SelectItem>
+                  <SelectItem value="annulee">Annulee</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Grossiste</label>
+              <Select value={grossisteFilter} onValueChange={setGrossisteFilter}>
+                <SelectTrigger className="w-48" data-testid="select-stats-grossiste">
+                  <SelectValue placeholder="Tous les grossistes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les grossistes</SelectItem>
+                  {grossistes.map(g => (
+                    <SelectItem key={g.id} value={g.id}>{g.nom}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -33,17 +138,17 @@ export default function StatsPage() {
           isLoading={isLoading}
         />
         <StatCard
-          title="Délai moyen"
+          title="Delai moyen"
           value={`${stats?.avgProcessingTime || 0}h`}
           icon={Clock}
-          description="De l'envoi à l'acceptation"
+          description="De l'envoi a l'acceptation"
           isLoading={isLoading}
         />
         <StatCard
           title="Taux d'acceptation"
           value={`${100 - (stats?.refusalRate || 0)}%`}
           icon={CheckCircle2}
-          description="Commandes acceptées"
+          description="Commandes acceptees"
           isLoading={isLoading}
           trend="up"
         />
@@ -51,7 +156,7 @@ export default function StatsPage() {
           title="Taux de refus"
           value={`${stats?.refusalRate || 0}%`}
           icon={XCircle}
-          description="Commandes refusées"
+          description="Commandes refusees"
           isLoading={isLoading}
           trend={stats?.refusalRate && stats.refusalRate > 10 ? "down" : "up"}
         />
@@ -61,10 +166,10 @@ export default function StatsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-primary" />
-              Répartition par statut
+              <BarChart3 className="w-5 h-5" />
+              Repartition par statut
             </CardTitle>
-            <CardDescription>Distribution des commandes par état</CardDescription>
+            <CardDescription>Distribution des commandes par etat</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -75,11 +180,11 @@ export default function StatsPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {Object.entries(stats?.ordersByStatus || {}).map(([status, count]) => {
+                {Object.entries(filteredByStatus || {}).map(([status, count]) => {
                   const percentage = Math.round(((count as number) / (stats?.totalOrders || 1)) * 100);
                   return (
-                    <div key={status} className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
+                    <div key={status} className="space-y-2" data-testid={`stat-status-${status}`}>
+                      <div className="flex items-center justify-between gap-2 text-sm flex-wrap">
                         <span className="text-muted-foreground capitalize">
                           {status.replace(/_/g, " ")}
                         </span>
@@ -111,14 +216,14 @@ export default function StatsPage() {
                   <Skeleton key={i} className="h-16 w-full" />
                 ))}
               </div>
-            ) : stats?.ordersByGrossiste?.length === 0 ? (
+            ) : (filteredGrossistes || []).length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                Aucune donnée disponible
+                Aucune donnee disponible
               </div>
             ) : (
               <div className="space-y-4">
-                {stats?.ordersByGrossiste?.map((g, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-md bg-muted/50">
+                {(filteredGrossistes || []).map((g, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 p-3 rounded-md bg-muted/50 flex-wrap" data-testid={`stat-grossiste-${i}`}>
                     <div>
                       <p className="font-medium">{g.grossiste}</p>
                       <p className="text-sm text-muted-foreground">{g.count} commandes</p>
@@ -141,7 +246,7 @@ export default function StatsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Évolution mensuelle</CardTitle>
+          <CardTitle className="text-lg">Evolution mensuelle</CardTitle>
           <CardDescription>Nombre de commandes par mois</CardDescription>
         </CardHeader>
         <CardContent>
@@ -149,7 +254,7 @@ export default function StatsPage() {
             <Skeleton className="h-48 w-full" />
           ) : stats?.ordersByMonth?.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              Aucune donnée disponible
+              Aucune donnee disponible
             </div>
           ) : (
             <div className="flex items-end gap-2 h-48">
@@ -157,9 +262,9 @@ export default function StatsPage() {
                 const maxCount = Math.max(...(stats?.ordersByMonth?.map(x => x.count) || [1]));
                 const height = Math.max(10, (m.count / maxCount) * 100);
                 return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                  <div key={i} className="flex-1 flex flex-col items-center gap-2" data-testid={`stat-month-${i}`}>
                     <div 
-                      className="w-full bg-primary rounded-t transition-all duration-500 hover:bg-primary/80"
+                      className="w-full bg-primary rounded-t transition-all duration-500"
                       style={{ height: `${height}%` }}
                     />
                     <span className="text-xs text-muted-foreground">{m.month}</span>
@@ -188,7 +293,7 @@ function StatCard({ title, value, icon: Icon, description, isLoading, trend }: S
   return (
     <Card className="hover-elevate">
       <CardContent className="p-6">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-2">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             {isLoading ? (
@@ -201,12 +306,12 @@ function StatCard({ title, value, icon: Icon, description, isLoading, trend }: S
           <div className={`p-2 rounded-md ${
             trend === "up" ? "bg-chart-4/10" : 
             trend === "down" ? "bg-destructive/10" : 
-            "bg-primary/10"
+            "bg-muted"
           }`}>
             <Icon className={`w-5 h-5 ${
               trend === "up" ? "text-chart-4" : 
               trend === "down" ? "text-destructive" : 
-              "text-primary"
+              "text-foreground"
             }`} />
           </div>
         </div>
