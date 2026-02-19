@@ -10,6 +10,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { static as serveStatic } from "express";
+import { parse } from "csv-parse/sync";
 
 declare module "express-session" {
   interface SessionData {
@@ -272,6 +273,94 @@ export async function registerRoutes(
       res.json(entity);
     } catch (error) {
       res.status(400).json({ error: "Données invalides" });
+    }
+  });
+
+  // Import entities from CSV file
+  const importUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (ext === '.csv') {
+        cb(null, true);
+      } else {
+        cb(new Error("Format de fichier non supporté. Utilisez un fichier CSV."));
+      }
+    }
+  });
+
+  app.post("/api/entities/import", requireRole("admin"), importUpload.single("file"), async (req, res) => {
+    try {
+      const file = req.file;
+      const entityType = req.body.type;
+
+      if (!file) {
+        return res.status(400).json({ error: "Aucun fichier fourni" });
+      }
+      if (!entityType || !["pharmacie", "grossiste"].includes(entityType)) {
+        return res.status(400).json({ error: "Type d'entité invalide" });
+      }
+
+      const content = file.buffer.toString("utf-8");
+      let rows: any[] = [];
+
+      try {
+        rows = parse(content, {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+          bom: true,
+          delimiter: [",", ";", "\t"]
+        });
+      } catch (parseErr) {
+        return res.status(400).json({ error: "Erreur de lecture du fichier CSV. Vérifiez le format." });
+      }
+
+      if (rows.length === 0) {
+        return res.status(400).json({ error: "Le fichier est vide" });
+      }
+
+      let imported = 0;
+      const errors: string[] = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const nom = row.nom || row.Nom || row.name || row.Name || "";
+        if (!nom.trim()) {
+          errors.push(`Ligne ${i + 2}: nom manquant`);
+          continue;
+        }
+
+        const entityData: any = {
+          nom: nom.trim(),
+          type: entityType,
+          email: (row.email || row.Email || row.EMAIL || "").trim() || null,
+          telephone: (row.telephone || row.Telephone || row.tel || row.Tel || row.phone || row.Phone || "").trim() || null,
+          adresse: (row.adresse || row.Adresse || row.address || row.Address || "").trim() || null,
+          region: (row.region || row.Region || row.région || row.Région || "").trim() || null,
+          secteur: (row.secteur || row.Secteur || "").trim() || null,
+        };
+
+        if (entityType === "pharmacie") {
+          entityData.classification = (row.classification || row.Classification || row.classe || row.Classe || "").trim() || null;
+          entityData.proprietaire = (row.proprietaire || row.Proprietaire || row.propriétaire || row.Propriétaire || "").trim() || null;
+          entityData.pharmacienResponsable = (row.pharmacienResponsable || row.pharmacien_responsable || row.pharmacien || row.Pharmacien || "").trim() || null;
+          const prep = (row.preparateurs || row.Preparateurs || row.préparateurs || row.Préparateurs || "").trim();
+          entityData.preparateurs = prep ? JSON.stringify(prep.split("|").map((p: string) => p.trim()).filter(Boolean)) : null;
+        }
+
+        try {
+          await storage.createEntity(entityData);
+          imported++;
+        } catch (err) {
+          errors.push(`Ligne ${i + 2}: erreur lors de l'importation de "${nom}"`);
+        }
+      }
+
+      res.json({ imported, total: rows.length, errors: errors.length > 0 ? errors : undefined });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Erreur lors de l'importation" });
     }
   });
 

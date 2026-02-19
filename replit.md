@@ -129,6 +129,13 @@ npm run db:push   # Appliquer les migrations
 ```
 
 ## Recent Changes
+- 2026-02-19: Ajout champs et filtres + import fichier
+  - Produits : ajout champ "spécialité" dans le formulaire, la table et la recherche
+  - Pharmacies : ajout champs "région" et "secteur", filtres par région/secteur/classe
+  - Grossistes : ajout champs "région" et "secteur", filtres par région/secteur
+  - Import fichier CSV pour pharmacies et grossistes (POST /api/entities/import)
+  - Schema entities : nouveaux champs region, secteur
+  - Schema products : nouveau champ specialite
 - 2026-02-18: Séparation pharmacies et grossistes
   - Page "Liste de pharmacies" filtre uniquement les pharmacies
   - Nouveaux champs pharmacie : classification, propriétaire, pharmacien responsable, préparateurs (multiples)

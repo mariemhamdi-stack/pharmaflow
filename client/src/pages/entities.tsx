@@ -1,22 +1,28 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Entity } from "@shared/schema";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Store, X, UserPlus } from "lucide-react";
+import { Plus, Search, Edit, Store, X, UserPlus, Upload, FileSpreadsheet } from "lucide-react";
 
 export default function PharmaciesPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
+  const [filterRegion, setFilterRegion] = useState("all");
+  const [filterSecteur, setFilterSecteur] = useState("all");
+  const [filterClasse, setFilterClasse] = useState("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingEntity, setEditingEntity] = useState<Entity | null>(null);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: entities, isLoading } = useQuery<Entity[]>({
     queryKey: ["/api/entities"]
@@ -24,17 +30,63 @@ export default function PharmaciesPage() {
 
   const pharmacies = entities?.filter(e => e.type === "pharmacie");
 
+  const regions = Array.from(new Set(pharmacies?.map(e => e.region).filter(Boolean) as string[])).sort();
+  const secteurs = Array.from(new Set(pharmacies?.map(e => e.secteur).filter(Boolean) as string[])).sort();
+  const classes = Array.from(new Set(pharmacies?.map(e => e.classification).filter(Boolean) as string[])).sort();
+
   const filteredPharmacies = pharmacies?.filter(entity => {
     const searchLower = search.toLowerCase();
-    return (
+    const matchesSearch = !search || (
       entity.nom.toLowerCase().includes(searchLower) ||
       entity.email?.toLowerCase().includes(searchLower) ||
       entity.adresse?.toLowerCase().includes(searchLower) ||
-      (entity as any).proprietaire?.toLowerCase().includes(searchLower) ||
-      (entity as any).pharmacienResponsable?.toLowerCase().includes(searchLower) ||
-      (entity as any).classification?.toLowerCase().includes(searchLower)
+      entity.proprietaire?.toLowerCase().includes(searchLower) ||
+      entity.pharmacienResponsable?.toLowerCase().includes(searchLower) ||
+      entity.classification?.toLowerCase().includes(searchLower) ||
+      entity.region?.toLowerCase().includes(searchLower) ||
+      entity.secteur?.toLowerCase().includes(searchLower)
     );
+    const matchesRegion = filterRegion === "all" || entity.region === filterRegion;
+    const matchesSecteur = filterSecteur === "all" || entity.secteur === filterSecteur;
+    const matchesClasse = filterClasse === "all" || entity.classification === filterClasse;
+    return matchesSearch && matchesRegion && matchesSecteur && matchesClasse;
   });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", "pharmacie");
+      const res = await fetch("/api/entities/import", {
+        method: "POST",
+        body: formData,
+        credentials: "include"
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erreur lors de l'importation");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Importation réussie",
+        description: `${data.imported} pharmacie(s) importée(s) avec succès`
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
+      setIsUploadOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erreur d'importation", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadMutation.mutate(file);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -43,35 +95,115 @@ export default function PharmaciesPage() {
           <h1 className="text-3xl font-bold text-foreground" data-testid="text-pharmacies-title">Liste de pharmacies</h1>
           <p className="text-muted-foreground mt-1">Gérez les pharmacies et leurs informations</p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-create-pharmacy">
-              <Plus className="w-4 h-4 mr-2" />
-              Nouvelle pharmacie
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <PharmacyForm
-              onSuccess={() => {
-                setIsCreateOpen(false);
-                queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex flex-wrap gap-2">
+          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" data-testid="button-upload-pharmacies">
+                <Upload className="w-4 h-4 mr-2" />
+                Importer
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Importer des pharmacies</DialogTitle>
+                <DialogDescription>
+                  Uploadez un fichier CSV contenant la liste des pharmacies à importer.
+                  Le fichier doit contenir les colonnes : nom, email, telephone, adresse, region, secteur, classification, proprietaire, pharmacienResponsable
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 mt-4">
+                <div className="border-2 border-dashed rounded-md p-8 text-center">
+                  <FileSpreadsheet className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Format accepté : .csv (séparateur virgule, point-virgule ou tabulation)
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    data-testid="input-upload-file-pharmacies"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadMutation.isPending}
+                    data-testid="button-select-file-pharmacies"
+                  >
+                    {uploadMutation.isPending ? "Importation en cours..." : "Sélectionner un fichier"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-create-pharmacy">
+                <Plus className="w-4 h-4 mr-2" />
+                Nouvelle pharmacie
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <PharmacyForm
+                onSuccess={() => {
+                  setIsCreateOpen(false);
+                  queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>
         <CardHeader className="pb-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher une pharmacie..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-              data-testid="input-search-pharmacies"
-            />
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher une pharmacie..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+                data-testid="input-search-pharmacies"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Select value={filterRegion} onValueChange={setFilterRegion}>
+                <SelectTrigger className="w-[160px]" data-testid="filter-region-pharmacies">
+                  <SelectValue placeholder="Région" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les régions</SelectItem>
+                  {regions.map(r => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterSecteur} onValueChange={setFilterSecteur}>
+                <SelectTrigger className="w-[160px]" data-testid="filter-secteur-pharmacies">
+                  <SelectValue placeholder="Secteur" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les secteurs</SelectItem>
+                  {secteurs.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterClasse} onValueChange={setFilterClasse}>
+                <SelectTrigger className="w-[160px]" data-testid="filter-classe-pharmacies">
+                  <SelectValue placeholder="Classe" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les classes</SelectItem>
+                  {classes.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -86,7 +218,7 @@ export default function PharmaciesPage() {
               <Store className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground">Aucune pharmacie</h3>
               <p className="text-muted-foreground mt-1">
-                {search
+                {search || filterRegion !== "all" || filterSecteur !== "all" || filterClasse !== "all"
                   ? "Aucune pharmacie ne correspond à vos critères"
                   : "Commencez par ajouter des pharmacies"}
               </p>
@@ -97,18 +229,19 @@ export default function PharmaciesPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nom</TableHead>
-                    <TableHead>Classification</TableHead>
+                    <TableHead>Région</TableHead>
+                    <TableHead>Secteur</TableHead>
+                    <TableHead>Classe</TableHead>
                     <TableHead>Propriétaire</TableHead>
                     <TableHead>Pharmacien responsable</TableHead>
                     <TableHead>Préparateurs</TableHead>
                     <TableHead>Téléphone</TableHead>
-                    <TableHead>Adresse</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPharmacies?.map((entity) => {
-                    const preparateurs = parsePreparateurs((entity as any).preparateurs);
+                    const preparateurs = parsePreparateurs(entity.preparateurs);
                     return (
                       <TableRow key={entity.id} className="hover-elevate" data-testid={`row-pharmacy-${entity.id}`}>
                         <TableCell>
@@ -124,15 +257,17 @@ export default function PharmaciesPage() {
                             </div>
                           </div>
                         </TableCell>
+                        <TableCell data-testid={`text-region-${entity.id}`}>{entity.region || "-"}</TableCell>
+                        <TableCell data-testid={`text-secteur-${entity.id}`}>{entity.secteur || "-"}</TableCell>
                         <TableCell data-testid={`text-classification-${entity.id}`}>
-                          {(entity as any).classification ? (
+                          {entity.classification ? (
                             <Badge variant="outline" className="bg-primary/10 text-primary border-transparent">
-                              {(entity as any).classification}
+                              {entity.classification}
                             </Badge>
                           ) : "-"}
                         </TableCell>
-                        <TableCell data-testid={`text-proprietaire-${entity.id}`}>{(entity as any).proprietaire || "-"}</TableCell>
-                        <TableCell data-testid={`text-pharmacien-${entity.id}`}>{(entity as any).pharmacienResponsable || "-"}</TableCell>
+                        <TableCell data-testid={`text-proprietaire-${entity.id}`}>{entity.proprietaire || "-"}</TableCell>
+                        <TableCell data-testid={`text-pharmacien-${entity.id}`}>{entity.pharmacienResponsable || "-"}</TableCell>
                         <TableCell data-testid={`text-preparateurs-${entity.id}`}>
                           {preparateurs.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
@@ -145,7 +280,6 @@ export default function PharmaciesPage() {
                           ) : "-"}
                         </TableCell>
                         <TableCell>{entity.telephone || "-"}</TableCell>
-                        <TableCell className="max-w-xs truncate">{entity.adresse || "-"}</TableCell>
                         <TableCell className="text-right">
                           <Button
                             size="icon"
@@ -203,11 +337,13 @@ function PharmacyForm({ entity, onSuccess }: PharmacyFormProps) {
   const [email, setEmail] = useState(entity?.email || "");
   const [telephone, setTelephone] = useState(entity?.telephone || "");
   const [adresse, setAdresse] = useState(entity?.adresse || "");
-  const [classification, setClassification] = useState((entity as any)?.classification || "");
-  const [proprietaire, setProprietaire] = useState((entity as any)?.proprietaire || "");
-  const [pharmacienResponsable, setPharmacienResponsable] = useState((entity as any)?.pharmacienResponsable || "");
+  const [region, setRegion] = useState(entity?.region || "");
+  const [secteur, setSecteur] = useState(entity?.secteur || "");
+  const [classification, setClassification] = useState(entity?.classification || "");
+  const [proprietaire, setProprietaire] = useState(entity?.proprietaire || "");
+  const [pharmacienResponsable, setPharmacienResponsable] = useState(entity?.pharmacienResponsable || "");
   const [preparateurs, setPreparateurs] = useState<string[]>(
-    parsePreparateurs((entity as any)?.preparateurs)
+    parsePreparateurs(entity?.preparateurs)
   );
   const [newPreparateur, setNewPreparateur] = useState("");
 
@@ -254,6 +390,8 @@ function PharmacyForm({ entity, onSuccess }: PharmacyFormProps) {
       email,
       telephone,
       adresse,
+      region: region || null,
+      secteur: secteur || null,
       classification: classification || null,
       proprietaire: proprietaire || null,
       pharmacienResponsable: pharmacienResponsable || null,
@@ -280,8 +418,29 @@ function PharmacyForm({ entity, onSuccess }: PharmacyFormProps) {
           />
         </div>
 
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Région</label>
+            <Input
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              placeholder="Ex: Casablanca-Settat"
+              data-testid="input-pharmacy-region"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Secteur</label>
+            <Input
+              value={secteur}
+              onChange={(e) => setSecteur(e.target.value)}
+              placeholder="Ex: Secteur 1"
+              data-testid="input-pharmacy-secteur"
+            />
+          </div>
+        </div>
+
         <div className="space-y-2">
-          <label className="text-sm font-medium">Classification</label>
+          <label className="text-sm font-medium">Classe</label>
           <Input
             value={classification}
             onChange={(e) => setClassification(e.target.value)}

@@ -34,7 +34,8 @@ export default function ProductsPage() {
   const filteredProducts = products?.filter(product => 
     product.nom.toLowerCase().includes(search.toLowerCase()) ||
     product.code.toLowerCase().includes(search.toLowerCase()) ||
-    product.forme?.toLowerCase().includes(search.toLowerCase())
+    product.forme?.toLowerCase().includes(search.toLowerCase()) ||
+    product.specialite?.toLowerCase().includes(search.toLowerCase())
   );
 
   const canManageProducts = user?.role === "admin" || user?.role === "laboratoire";
@@ -108,6 +109,7 @@ export default function ProductsPage() {
                   <TableRow>
                     <TableHead>Code</TableHead>
                     <TableHead>Nom</TableHead>
+                    <TableHead>Spécialité</TableHead>
                     <TableHead>Forme</TableHead>
                     <TableHead>Dosage</TableHead>
                     <TableHead>Laboratoire</TableHead>
@@ -127,6 +129,7 @@ export default function ProductsPage() {
                           <span className="font-medium">{product.nom}</span>
                         </div>
                       </TableCell>
+                      <TableCell data-testid={`text-specialite-${product.id}`}>{product.specialite || "-"}</TableCell>
                       <TableCell>{product.forme || "-"}</TableCell>
                       <TableCell>{product.dosage || "-"}</TableCell>
                       <TableCell>{getLaboratoireName(product.laboratoireId)}</TableCell>
@@ -183,6 +186,7 @@ function ProductForm({ product, laboratoires, onSuccess }: ProductFormProps) {
   const { toast } = useToast();
   const [code, setCode] = useState(product?.code || "");
   const [nom, setNom] = useState(product?.nom || "");
+  const [specialite, setSpecialite] = useState(product?.specialite || "");
   const [forme, setForme] = useState(product?.forme || "");
   const [dosage, setDosage] = useState(product?.dosage || "");
   const [laboratoireId, setLaboratoireId] = useState(product?.laboratoireId || user?.entityId || "");
@@ -213,7 +217,7 @@ function ProductForm({ product, laboratoires, onSuccess }: ProductFormProps) {
       toast({ title: "Erreur", description: "Veuillez remplir les champs obligatoires", variant: "destructive" });
       return;
     }
-    mutation.mutate({ code, nom, forme, dosage, laboratoireId, status });
+    mutation.mutate({ code, nom, specialite: specialite || null, forme, dosage, laboratoireId, status });
   };
 
   return (
@@ -244,6 +248,16 @@ function ProductForm({ product, laboratoires, onSuccess }: ProductFormProps) {
               data-testid="input-product-name"
             />
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Spécialité</label>
+          <Input
+            value={specialite}
+            onChange={(e) => setSpecialite(e.target.value)}
+            placeholder="Ex: Cardiologie, Dermatologie..."
+            data-testid="input-product-specialite"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
