@@ -23,6 +23,21 @@ interface DashboardStats {
   lateOrders?: number;
 }
 
+const statusLabels: Record<string, string> = {
+  brouillon: "Brouillon",
+  validee_delegue: "Validée délégué",
+  validee_pharmacie: "Validée pharmacie",
+  envoyee: "Envoyée",
+  acceptee: "Acceptée",
+  refusee: "Refusée",
+  partiellement_acceptee: "Partiellement acceptée",
+  en_preparation: "En préparation",
+  livree: "Livrée",
+  cloturee: "Clôturée",
+  litige: "Litige",
+  annulee: "Annulée",
+};
+
 export default function DashboardPage() {
   const { user } = useAuth();
 
@@ -88,8 +103,8 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {Object.entries(stats?.ordersByStatus || {}).map(([status, count]) => (
                   <div key={status} className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground capitalize">
-                      {status.replace(/_/g, " ")}
+                    <span className="text-sm text-muted-foreground">
+                      {statusLabels[status] || status.replace(/_/g, " ")}
                     </span>
                     <div className="flex items-center gap-2">
                       <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">

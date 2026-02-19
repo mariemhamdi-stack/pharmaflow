@@ -1056,7 +1056,26 @@ export async function registerRoutes(
       const labOrderIds = new Set(labOrders.map(o => o.id));
       history = history.filter(h => labOrderIds.has(h.orderId));
     }
-    res.json(history);
+
+    const allOrders = await storage.getOrders({});
+    const orderMap = new Map(allOrders.map(o => [o.id, o]));
+    const allEntities = await storage.getEntities();
+    const entityMap = new Map(allEntities.map(e => [e.id, e.nom]));
+    const allUsers = await storage.getUsers();
+    const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+    const enriched = history.map(h => {
+      const order = orderMap.get(h.orderId);
+      const delegue = order ? userMap.get(order.delegueId) : undefined;
+      return {
+        ...h,
+        pharmacieNom: order ? entityMap.get(order.pharmacieId) || null : null,
+        grossisteNom: order ? entityMap.get(order.grossisteId) || null : null,
+        delegueNom: delegue ? `${delegue.prenom} ${delegue.nom}` : null,
+      };
+    });
+
+    res.json(enriched);
   });
 
   // ============================================

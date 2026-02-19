@@ -665,6 +665,70 @@ export class DatabaseStorage implements IStorage {
       count: orderList.filter(o => new Date(o.createdAt).getMonth() === i).length
     }));
 
+    const pharmacieStats: Record<string, { count: number; litiges: number; cloturees: number }> = {};
+    for (const order of orderList) {
+      const pId = order.pharmacieId;
+      if (!pharmacieStats[pId]) {
+        pharmacieStats[pId] = { count: 0, litiges: 0, cloturees: 0 };
+      }
+      pharmacieStats[pId].count++;
+      if (order.status === "litige") pharmacieStats[pId].litiges++;
+      if (order.status === "cloturee") pharmacieStats[pId].cloturees++;
+    }
+    const pharmacieScoring = Object.entries(pharmacieStats)
+      .map(([id, s]) => ({
+        pharmacie: entityMap.get(id) || "Inconnu",
+        pharmacieId: id,
+        totalOrders: s.count,
+        litiges: s.litiges,
+        cloturees: s.cloturees,
+        score: s.count > 0 ? Math.round(((s.cloturees) / s.count) * 100) : 0
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    const allUsers = await this.getUsers();
+    const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+    const delegueStats: Record<string, { count: number; acceptees: number; refusees: number }> = {};
+    for (const order of orderList) {
+      const dId = order.delegueId;
+      if (!delegueStats[dId]) {
+        delegueStats[dId] = { count: 0, acceptees: 0, refusees: 0 };
+      }
+      delegueStats[dId].count++;
+      if (["acceptee", "en_preparation", "livree", "cloturee"].includes(order.status)) delegueStats[dId].acceptees++;
+      if (order.status === "refusee") delegueStats[dId].refusees++;
+    }
+    const deleguePerformance = Object.entries(delegueStats)
+      .map(([id, s]) => {
+        const u = userMap.get(id);
+        return {
+          delegue: u ? `${u.prenom} ${u.nom}` : "Inconnu",
+          delegueId: id,
+          totalOrders: s.count,
+          acceptees: s.acceptees,
+          refusees: s.refusees,
+          performanceRate: s.count > 0 ? Math.round((s.acceptees / s.count) * 100) : 0
+        };
+      })
+      .sort((a, b) => b.performanceRate - a.performanceRate);
+
+    const grossistePerformance = Object.entries(grossisteStats)
+      .map(([id, s]) => {
+        const ordersForG = orderList.filter(o => o.grossisteId === id);
+        const livrees = ordersForG.filter(o => ["livree", "cloturee"].includes(o.status)).length;
+        return {
+          grossiste: entityMap.get(id) || "Inconnu",
+          grossisteId: id,
+          totalOrders: s.count,
+          livrees,
+          refusees: s.refusals,
+          delaiMoyen: 24,
+          performanceRate: s.count > 0 ? Math.round((livrees / s.count) * 100) : 0
+        };
+      })
+      .sort((a, b) => b.performanceRate - a.performanceRate);
+
     return {
       totalOrders: orderList.length,
       ordersByStatus,
@@ -673,7 +737,10 @@ export class DatabaseStorage implements IStorage {
         ? Math.round((ordersByStatus["refusee"] || 0) / orderList.length * 100) 
         : 0,
       ordersByGrossiste,
-      ordersByMonth
+      ordersByMonth,
+      pharmacieScoring,
+      deleguePerformance,
+      grossistePerformance
     };
   }
 

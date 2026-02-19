@@ -5,7 +5,7 @@ import type { Entity } from "@shared/schema";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FilterCombobox } from "@/components/ui/filter-combobox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -163,28 +163,24 @@ export default function GrossistesPage() {
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              <Select value={filterRegion} onValueChange={setFilterRegion}>
-                <SelectTrigger className="w-[160px]" data-testid="filter-region-grossistes">
-                  <SelectValue placeholder="Région" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes les régions</SelectItem>
-                  {regions.map(r => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterSecteur} onValueChange={setFilterSecteur}>
-                <SelectTrigger className="w-[160px]" data-testid="filter-secteur-grossistes">
-                  <SelectValue placeholder="Secteur" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les secteurs</SelectItem>
-                  {secteurs.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FilterCombobox
+                value={filterRegion}
+                onValueChange={setFilterRegion}
+                options={regions}
+                placeholder="Rechercher une région..."
+                allLabel="Toutes les régions"
+                className="w-[180px]"
+                testId="filter-region-grossistes"
+              />
+              <FilterCombobox
+                value={filterSecteur}
+                onValueChange={setFilterSecteur}
+                options={secteurs}
+                placeholder="Rechercher un secteur..."
+                allLabel="Tous les secteurs"
+                className="w-[180px]"
+                testId="filter-secteur-grossistes"
+              />
             </div>
           </div>
         </CardHeader>

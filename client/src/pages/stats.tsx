@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart3, TrendingUp, TrendingDown, Clock, XCircle, CheckCircle2, Package, Filter } from "lucide-react";
+import { BarChart3, TrendingUp, TrendingDown, Clock, XCircle, CheckCircle2, Package, Filter, Store, Users, Truck } from "lucide-react";
 import type { Entity } from "@shared/schema";
 
 interface Stats {
@@ -14,9 +15,28 @@ interface Stats {
   refusalRate: number;
   ordersByGrossiste: { grossiste: string; grossisteId?: string; count: number; refusalRate: number }[];
   ordersByMonth: { month: string; count: number }[];
+  pharmacieScoring?: { pharmacie: string; pharmacieId: string; totalOrders: number; litiges: number; cloturees: number; score: number }[];
+  deleguePerformance?: { delegue: string; delegueId: string; totalOrders: number; acceptees: number; refusees: number; performanceRate: number }[];
+  grossistePerformance?: { grossiste: string; grossisteId: string; totalOrders: number; livrees: number; refusees: number; delaiMoyen: number; performanceRate: number }[];
 }
 
+const statusLabels: Record<string, string> = {
+  brouillon: "Brouillon",
+  validee_delegue: "Validée délégué",
+  validee_pharmacie: "Validée pharmacie",
+  envoyee: "Envoyée",
+  acceptee: "Acceptée",
+  refusee: "Refusée",
+  partiellement_acceptee: "Partiellement acceptée",
+  en_preparation: "En préparation",
+  livree: "Livrée",
+  cloturee: "Clôturée",
+  litige: "Litige",
+  annulee: "Annulée",
+};
+
 export default function StatsPage() {
+  const { user } = useAuth();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -185,8 +205,8 @@ export default function StatsPage() {
                   return (
                     <div key={status} className="space-y-2" data-testid={`stat-status-${status}`}>
                       <div className="flex items-center justify-between gap-2 text-sm flex-wrap">
-                        <span className="text-muted-foreground capitalize">
-                          {status.replace(/_/g, " ")}
+                        <span className="text-muted-foreground">
+                          {statusLabels[status] || status.replace(/_/g, " ")}
                         </span>
                         <span className="font-medium">{count as number} ({percentage}%)</span>
                       </div>
@@ -276,6 +296,180 @@ export default function StatsPage() {
           )}
         </CardContent>
       </Card>
+
+      {(user?.role === "admin" || user?.role === "laboratoire") && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Store className="w-5 h-5" />
+                  Scoring pharmacie
+                </CardTitle>
+                <CardDescription>Taux de clôture et litiges par pharmacie</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-16 w-full" />
+                    ))}
+                  </div>
+                ) : !stats?.pharmacieScoring || stats.pharmacieScoring.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Aucune donnée disponible
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {stats.pharmacieScoring.map((p, i) => (
+                      <div key={i} className="space-y-2" data-testid={`stat-pharmacie-score-${i}`}>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div>
+                            <p className="text-sm font-medium">{p.pharmacie}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {p.totalOrders} cmd, {p.cloturees} clôturées, {p.litiges} litige{p.litiges > 1 ? "s" : ""}
+                            </p>
+                          </div>
+                          <div className={`text-right ${
+                            p.score >= 70 ? "text-chart-4" : 
+                            p.score >= 40 ? "text-chart-2" : 
+                            "text-destructive"
+                          }`}>
+                            <p className="text-lg font-bold">{p.score}%</p>
+                            <p className="text-xs">score</p>
+                          </div>
+                        </div>
+                        <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              p.score >= 70 ? "bg-chart-4" : 
+                              p.score >= 40 ? "bg-chart-2" : 
+                              "bg-destructive"
+                            }`}
+                            style={{ width: `${p.score}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Performance délégué
+                </CardTitle>
+                <CardDescription>Taux d'acceptation des commandes par délégué</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-16 w-full" />
+                    ))}
+                  </div>
+                ) : !stats?.deleguePerformance || stats.deleguePerformance.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Aucune donnée disponible
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {stats.deleguePerformance.map((d, i) => (
+                      <div key={i} className="space-y-2" data-testid={`stat-delegue-perf-${i}`}>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div>
+                            <p className="text-sm font-medium">{d.delegue}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {d.totalOrders} cmd, {d.acceptees} acceptées, {d.refusees} refusées
+                            </p>
+                          </div>
+                          <div className={`text-right ${
+                            d.performanceRate >= 70 ? "text-chart-4" : 
+                            d.performanceRate >= 40 ? "text-chart-2" : 
+                            "text-destructive"
+                          }`}>
+                            <p className="text-lg font-bold">{d.performanceRate}%</p>
+                            <p className="text-xs">performance</p>
+                          </div>
+                        </div>
+                        <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              d.performanceRate >= 70 ? "bg-chart-4" : 
+                              d.performanceRate >= 40 ? "bg-chart-2" : 
+                              "bg-destructive"
+                            }`}
+                            style={{ width: `${d.performanceRate}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Truck className="w-5 h-5" />
+                Performance grossiste
+              </CardTitle>
+              <CardDescription>Taux de livraison et performance par grossiste</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : !stats?.grossistePerformance || stats.grossistePerformance.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Aucune donnée disponible
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {stats.grossistePerformance.map((g, i) => (
+                    <div key={i} className="space-y-2" data-testid={`stat-grossiste-perf-${i}`}>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div>
+                          <p className="text-sm font-medium">{g.grossiste}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {g.totalOrders} cmd, {g.livrees} livrées, {g.refusees} refusées
+                          </p>
+                        </div>
+                        <div className={`text-right ${
+                          g.performanceRate >= 70 ? "text-chart-4" : 
+                          g.performanceRate >= 40 ? "text-chart-2" : 
+                          "text-destructive"
+                        }`}>
+                          <p className="text-lg font-bold">{g.performanceRate}%</p>
+                          <p className="text-xs">performance</p>
+                        </div>
+                      </div>
+                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            g.performanceRate >= 70 ? "bg-chart-4" : 
+                            g.performanceRate >= 40 ? "bg-chart-2" : 
+                            "bg-destructive"
+                          }`}
+                          style={{ width: `${g.performanceRate}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
