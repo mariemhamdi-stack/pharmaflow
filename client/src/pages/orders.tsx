@@ -225,6 +225,7 @@ export default function OrdersPage() {
                   <TableRow>
                     <TableHead>Référence</TableHead>
                     <TableHead>Laboratoire</TableHead>
+                    <TableHead>Délégué</TableHead>
                     <TableHead>Pharmacie</TableHead>
                     <TableHead>Grossiste</TableHead>
                     <TableHead>Statut</TableHead>
@@ -240,6 +241,7 @@ export default function OrdersPage() {
                         {order.id.slice(0, 8)}...
                       </TableCell>
                       <TableCell data-testid={`text-order-labo-${order.id}`}>{order.laboratoire?.nom || "-"}</TableCell>
+                      <TableCell data-testid={`text-order-delegue-${order.id}`}>{order.delegue ? `${order.delegue.prenom} ${order.delegue.nom}` : "-"}</TableCell>
                       <TableCell data-testid={`text-order-pharmacie-${order.id}`}>{order.pharmacie?.nom || "-"}</TableCell>
                       <TableCell data-testid={`text-order-grossiste-${order.id}`}>{order.grossiste?.nom || "-"}</TableCell>
                       <TableCell data-testid={`text-order-status-${order.id}`}>
