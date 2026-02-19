@@ -37,7 +37,6 @@ export default function UsersPage() {
   const filteredUsers = users?.filter(user => {
     if (isLabView) {
       if (user.role !== "delegue") return false;
-      if (currentUser?.entityId && user.entityId !== currentUser.entityId) return false;
     }
 
     const matchesSearch = 
