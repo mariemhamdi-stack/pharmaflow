@@ -62,6 +62,7 @@ const typeLabels: Record<string, string> = {
   remise: "Remise",
   pack: "Pack promotionnel",
   mise_en_place: "Mise en place",
+  bon_de_commande: "Bon de commande",
 };
 
 function TypeBadge({ type }: { type: string }) {
@@ -69,6 +70,7 @@ function TypeBadge({ type }: { type: string }) {
     remise: "bg-chart-4/20 text-chart-4",
     pack: "bg-primary/10 text-primary",
     mise_en_place: "bg-chart-2/20 text-chart-2",
+    bon_de_commande: "bg-chart-3/20 text-chart-3",
   };
   return (
     <Badge variant="outline" className={`no-default-hover-elevate no-default-active-elevate ${styles[type] || ""}`}>
@@ -702,6 +704,7 @@ function CreateOfferForm({ onSuccess }: CreateOfferFormProps) {
                 <SelectItem value="remise">Remise</SelectItem>
                 <SelectItem value="pack">Pack promotionnel</SelectItem>
                 <SelectItem value="mise_en_place">Mise en place</SelectItem>
+                <SelectItem value="bon_de_commande">Bon de commande</SelectItem>
               </SelectContent>
             </Select>
           </div>

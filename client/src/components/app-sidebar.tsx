@@ -59,7 +59,7 @@ export function AppSidebar() {
     if (user?.role === "laboratoire") {
       return [
         ...baseItems,
-        { title: "Utilisateurs", url: "/users", icon: Users },
+        { title: "Liste des délégués", url: "/users", icon: Users },
         { title: "Liste de pharmacies", url: "/entities", icon: Store },
         { title: "Liste de grossistes", url: "/grossistes", icon: Truck },
         { title: "Produits", url: "/products", icon: Package },

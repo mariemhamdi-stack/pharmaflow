@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FilterCombobox } from "@/components/ui/filter-combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart3, TrendingUp, TrendingDown, Clock, XCircle, CheckCircle2, Package, Filter, Store, Users, Truck } from "lucide-react";
 import type { Entity } from "@shared/schema";
@@ -110,40 +110,40 @@ export default function StatsPage() {
             </div>
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Statut</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48" data-testid="select-stats-status">
-                  <SelectValue placeholder="Tous les statuts" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les statuts</SelectItem>
-                  <SelectItem value="brouillon">Brouillon</SelectItem>
-                  <SelectItem value="validee_delegue">Validée délégué</SelectItem>
-                  <SelectItem value="validee_pharmacie">Validée pharmacie</SelectItem>
-                  <SelectItem value="envoyee">Envoyée</SelectItem>
-                  <SelectItem value="acceptee">Acceptée</SelectItem>
-                  <SelectItem value="refusee">Refusée</SelectItem>
-                  <SelectItem value="partiellement_acceptee">Partiellement acceptée</SelectItem>
-                  <SelectItem value="en_preparation">En préparation</SelectItem>
-                  <SelectItem value="livree">Livrée</SelectItem>
-                  <SelectItem value="cloturee">Clôturée</SelectItem>
-                  <SelectItem value="litige">Litige</SelectItem>
-                  <SelectItem value="annulee">Annulée</SelectItem>
-                </SelectContent>
-              </Select>
+              <FilterCombobox
+                value={statusFilter}
+                onValueChange={setStatusFilter}
+                options={[
+                  { value: "brouillon", label: "Brouillon" },
+                  { value: "validee_delegue", label: "Validée délégué" },
+                  { value: "validee_pharmacie", label: "Validée pharmacie" },
+                  { value: "envoyee", label: "Envoyée" },
+                  { value: "acceptee", label: "Acceptée" },
+                  { value: "refusee", label: "Refusée" },
+                  { value: "partiellement_acceptee", label: "Partiellement acceptée" },
+                  { value: "en_preparation", label: "En préparation" },
+                  { value: "livree", label: "Livrée" },
+                  { value: "cloturee", label: "Clôturée" },
+                  { value: "litige", label: "Litige" },
+                  { value: "annulee", label: "Annulée" },
+                ]}
+                allLabel="Tous les statuts"
+                placeholder="Rechercher un statut..."
+                className="w-48"
+                testId="select-stats-status"
+              />
             </div>
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Grossiste</label>
-              <Select value={grossisteFilter} onValueChange={setGrossisteFilter}>
-                <SelectTrigger className="w-48" data-testid="select-stats-grossiste">
-                  <SelectValue placeholder="Tous les grossistes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les grossistes</SelectItem>
-                  {grossistes.map(g => (
-                    <SelectItem key={g.id} value={g.id}>{g.nom}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FilterCombobox
+                value={grossisteFilter}
+                onValueChange={setGrossisteFilter}
+                options={grossistes.map(g => ({ value: g.id, label: g.nom }))}
+                allLabel="Tous les grossistes"
+                placeholder="Rechercher un grossiste..."
+                className="w-48"
+                testId="select-stats-grossiste"
+              />
             </div>
           </div>
         </CardContent>

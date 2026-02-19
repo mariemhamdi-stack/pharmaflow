@@ -16,14 +16,27 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 
+export interface FilterOption {
+  value: string;
+  label: string;
+}
+
 interface FilterComboboxProps {
   value: string;
   onValueChange: (value: string) => void;
-  options: string[];
+  options: string[] | FilterOption[];
   placeholder?: string;
   allLabel?: string;
   className?: string;
   testId?: string;
+}
+
+function normalizeOptions(options: string[] | FilterOption[]): FilterOption[] {
+  if (options.length === 0) return [];
+  if (typeof options[0] === "string") {
+    return (options as string[]).map((o) => ({ value: o, label: o }));
+  }
+  return options as FilterOption[];
 }
 
 export function FilterCombobox({
@@ -38,11 +51,14 @@ export function FilterCombobox({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  const filteredOptions = options.filter((opt) =>
-    opt.toLowerCase().includes(search.toLowerCase())
+  const normalizedOptions = normalizeOptions(options);
+
+  const filteredOptions = normalizedOptions.filter((opt) =>
+    opt.label.toLowerCase().includes(search.toLowerCase())
   );
 
-  const displayLabel = value === "all" ? allLabel : value;
+  const selectedOption = normalizedOptions.find((o) => o.value === value);
+  const displayLabel = value === "all" ? allLabel : selectedOption?.label || value;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -86,18 +102,18 @@ export function FilterCombobox({
               </CommandItem>
               {filteredOptions.map((opt, idx) => (
                 <CommandItem
-                  key={opt}
-                  value={opt}
+                  key={opt.value}
+                  value={opt.label}
                   onSelect={() => {
-                    onValueChange(opt);
+                    onValueChange(opt.value);
                     setOpen(false);
                     setSearch("");
                   }}
                   className="gap-2"
                   data-testid={testId ? `${testId}-option-${idx}` : undefined}
                 >
-                  <Check className={cn("h-4 w-4 shrink-0", value === opt ? "opacity-100" : "opacity-0")} />
-                  <span>{opt}</span>
+                  <Check className={cn("h-4 w-4 shrink-0", value === opt.value ? "opacity-100" : "opacity-0")} />
+                  <span>{opt.label}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

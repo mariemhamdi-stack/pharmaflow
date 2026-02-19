@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FilterCombobox } from "@/components/ui/filter-combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -140,51 +141,49 @@ export default function OrdersPage() {
             </div>
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-56" data-testid="select-status-filter">
-                  <SelectValue placeholder="Filtrer par statut" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les statuts</SelectItem>
-                  <SelectItem value="brouillon">Brouillon</SelectItem>
-                  <SelectItem value="validee_delegue">Validée délégué</SelectItem>
-                  <SelectItem value="validee_pharmacie">Validée pharmacie</SelectItem>
-                  <SelectItem value="envoyee">Envoyée</SelectItem>
-                  <SelectItem value="acceptee">Acceptée</SelectItem>
-                  <SelectItem value="refusee">Refusée</SelectItem>
-                  <SelectItem value="partiellement_acceptee">Partiellement acceptée</SelectItem>
-                  <SelectItem value="en_preparation">En préparation</SelectItem>
-                  <SelectItem value="livree">Livrée</SelectItem>
-                  <SelectItem value="cloturee">Clôturée</SelectItem>
-                  <SelectItem value="litige">Litige</SelectItem>
-                  <SelectItem value="annulee">Annulée</SelectItem>
-                </SelectContent>
-              </Select>
+              <FilterCombobox
+                value={statusFilter}
+                onValueChange={setStatusFilter}
+                options={[
+                  { value: "brouillon", label: "Brouillon" },
+                  { value: "validee_delegue", label: "Validée délégué" },
+                  { value: "validee_pharmacie", label: "Validée pharmacie" },
+                  { value: "envoyee", label: "Envoyée" },
+                  { value: "acceptee", label: "Acceptée" },
+                  { value: "refusee", label: "Refusée" },
+                  { value: "partiellement_acceptee", label: "Partiellement acceptée" },
+                  { value: "en_preparation", label: "En préparation" },
+                  { value: "livree", label: "Livrée" },
+                  { value: "cloturee", label: "Clôturée" },
+                  { value: "litige", label: "Litige" },
+                  { value: "annulee", label: "Annulée" },
+                ]}
+                allLabel="Tous les statuts"
+                placeholder="Rechercher un statut..."
+                className="w-56"
+                testId="select-status-filter"
+              />
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={pharmacieFilter} onValueChange={setPharmacieFilter}>
-              <SelectTrigger className="w-48" data-testid="select-pharmacie-filter">
-                <SelectValue placeholder="Pharmacie" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les pharmacies</SelectItem>
-                {allPharmacies.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.nom}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={grossisteFilter} onValueChange={setGrossisteFilter}>
-              <SelectTrigger className="w-48" data-testid="select-grossiste-filter">
-                <SelectValue placeholder="Grossiste" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les grossistes</SelectItem>
-                {allGrossistes.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>{g.nom}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <FilterCombobox
+              value={pharmacieFilter}
+              onValueChange={setPharmacieFilter}
+              options={allPharmacies.map((p) => ({ value: p.id, label: p.nom }))}
+              allLabel="Toutes les pharmacies"
+              placeholder="Rechercher une pharmacie..."
+              className="w-48"
+              testId="select-pharmacie-filter"
+            />
+            <FilterCombobox
+              value={grossisteFilter}
+              onValueChange={setGrossisteFilter}
+              options={allGrossistes.map((g) => ({ value: g.id, label: g.nom }))}
+              allLabel="Tous les grossistes"
+              placeholder="Rechercher un grossiste..."
+              className="w-48"
+              testId="select-grossiste-filter"
+            />
             <Input
               type="date"
               value={dateFrom}

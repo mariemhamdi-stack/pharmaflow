@@ -6,20 +6,25 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FilterCombobox } from "@/components/ui/filter-combobox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/status-badge";
+import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Edit, Users as UsersIcon, X, Eye, EyeOff } from "lucide-react";
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  const isLabView = currentUser?.role === "laboratoire";
 
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"]
@@ -30,6 +35,11 @@ export default function UsersPage() {
   });
 
   const filteredUsers = users?.filter(user => {
+    if (isLabView) {
+      if (user.role !== "delegue") return false;
+      if (currentUser?.entityId && user.entityId !== currentUser.entityId) return false;
+    }
+
     const matchesSearch = 
       user.nom.toLowerCase().includes(search.toLowerCase()) ||
       user.prenom.toLowerCase().includes(search.toLowerCase()) ||
@@ -60,26 +70,32 @@ export default function UsersPage() {
     <div className="p-6 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Utilisateurs</h1>
-          <p className="text-muted-foreground mt-1">Gérez les utilisateurs du système</p>
+          <h1 className="text-3xl font-bold text-foreground">
+            {isLabView ? "Liste des délégués" : "Utilisateurs"}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {isLabView ? "Les délégués rattachés à votre laboratoire" : "Gérez les utilisateurs du système"}
+          </p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-create-user">
-              <Plus className="w-4 h-4 mr-2" />
-              Nouvel utilisateur
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <UserForm 
-              entities={entities || []}
-              onSuccess={() => {
-                setIsCreateOpen(false);
-                queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        {!isLabView && (
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-create-user">
+                <Plus className="w-4 h-4 mr-2" />
+                Nouvel utilisateur
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <UserForm 
+                entities={entities || []}
+                onSuccess={() => {
+                  setIsCreateOpen(false);
+                  queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <Card>
@@ -95,19 +111,23 @@ export default function UsersPage() {
                 data-testid="input-search-users"
               />
             </div>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-48" data-testid="select-role-filter">
-                <SelectValue placeholder="Filtrer par rôle" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les rôles</SelectItem>
-                <SelectItem value="admin">Administrateur</SelectItem>
-                <SelectItem value="laboratoire">Laboratoire</SelectItem>
-                <SelectItem value="delegue">Délégué</SelectItem>
-                <SelectItem value="grossiste">Grossiste</SelectItem>
-                <SelectItem value="pharmacie">Pharmacie</SelectItem>
-              </SelectContent>
-            </Select>
+            {!isLabView && (
+              <FilterCombobox
+                value={roleFilter}
+                onValueChange={setRoleFilter}
+                options={[
+                  { value: "admin", label: "Administrateur" },
+                  { value: "laboratoire", label: "Laboratoire" },
+                  { value: "delegue", label: "Délégué" },
+                  { value: "grossiste", label: "Grossiste" },
+                  { value: "pharmacie", label: "Pharmacie" },
+                ]}
+                allLabel="Tous les rôles"
+                placeholder="Rechercher un rôle..."
+                className="w-48"
+                testId="select-role-filter"
+              />
+            )}
           </div>
         </CardHeader>
         <CardContent>
