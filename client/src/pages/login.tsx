@@ -85,7 +85,7 @@ export default function LoginPage() {
                           <Input 
                             {...field} 
                             type="email" 
-                            placeholder="votre@email.com" 
+                            placeholder="" 
                             className="pl-10"
                             data-testid="input-email"
                           />
