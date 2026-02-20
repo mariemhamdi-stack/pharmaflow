@@ -284,6 +284,10 @@ export default function OrdersPage() {
                             order={order} 
                             userRole={user?.role || ""} 
                             allGrossistes={allGrossistes}
+                            onOpenDetails={() => {
+                              setSelectedOrder(order);
+                              setIsViewOpen(true);
+                            }}
                           />
                         </div>
                       </TableCell>
@@ -303,6 +307,7 @@ export default function OrdersPage() {
               order={selectedOrder} 
               userRole={user?.role || ""}
               onClose={() => setIsViewOpen(false)}
+              allGrossistes={allGrossistes}
             />
           )}
         </DialogContent>
@@ -617,13 +622,63 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
   );
 }
 
+function getActionLabel(order: OrderWithRelations, userRole: string): { label: string; icon: any; variant?: "default" | "destructive" | "outline" } | null {
+  if (order.status === "brouillon" && (userRole === "delegue" || userRole === "admin")) {
+    return { label: "Valider", icon: CheckCircle2 };
+  }
+  if (order.status === "validee_delegue" && (userRole === "pharmacie" || userRole === "admin")) {
+    return { label: "Valider", icon: CheckCircle2 };
+  }
+  if (order.status === "envoyee" && (userRole === "grossiste" || userRole === "admin")) {
+    return { label: "Traiter", icon: Check };
+  }
+  if ((order.status === "acceptee" || order.status === "partiellement_acceptee") && (userRole === "grossiste" || userRole === "admin")) {
+    return { label: "Préparer", icon: Package };
+  }
+  if (order.status === "en_preparation" && (userRole === "grossiste" || userRole === "admin")) {
+    return { label: "Livrer", icon: Truck };
+  }
+  if (order.status === "livree" && (userRole === "pharmacie" || userRole === "admin")) {
+    return { label: "Confirmer", icon: Check };
+  }
+  if (order.status === "refusee" && (userRole === "delegue" || userRole === "admin")) {
+    return { label: "Réattribuer", icon: RefreshCw };
+  }
+  return null;
+}
+
 interface OrderActionsProps {
   order: OrderWithRelations;
   userRole: string;
   allGrossistes: Entity[];
+  onOpenDetails: () => void;
 }
 
-function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
+function OrderActions({ order, userRole, onOpenDetails }: OrderActionsProps) {
+  const action = getActionLabel(order, userRole);
+  if (!action) return null;
+  const Icon = action.icon;
+  return (
+    <Button
+      size="sm"
+      variant={action.variant || "default"}
+      onClick={onOpenDetails}
+      data-testid={`button-action-${order.id}`}
+    >
+      <Icon className="w-4 h-4 mr-1" />
+      {action.label}
+    </Button>
+  );
+}
+
+interface OrderDetailActionsProps {
+  order: OrderWithRelations;
+  userRole: string;
+  allGrossistes: Entity[];
+  onDone: () => void;
+}
+
+function OrderDetailActions({ order, userRole, allGrossistes, onDone }: OrderDetailActionsProps) {
   const { toast } = useToast();
   const [showRefuseDialog, setShowRefuseDialog] = useState(false);
   const [showReassignDialog, setShowReassignDialog] = useState(false);
@@ -647,6 +702,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
     onSuccess: () => {
       toast({ title: "Statut mis à jour" });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      onDone();
     },
     onError: (error: any) => {
       toast({ title: "Erreur", description: error.message || "Impossible de mettre à jour le statut", variant: "destructive" });
@@ -661,6 +717,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
       toast({ title: "Commande réattribuée" });
       setShowReassignDialog(false);
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      onDone();
     },
     onError: (error: any) => {
       toast({ title: "Erreur", description: error.message || "Impossible de réattribuer", variant: "destructive" });
@@ -674,6 +731,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
     onSuccess: () => {
       toast({ title: "Commande annulée" });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      onDone();
     },
     onError: (error: any) => {
       toast({ title: "Erreur", description: error.message || "Impossible d'annuler", variant: "destructive" });
@@ -699,6 +757,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       setShowDeliveryDialog(false);
       setBlFile(null);
+      onDone();
     },
     onError: (error: any) => {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
@@ -724,6 +783,7 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       setShowCloseDialog(false);
       setBrFile(null);
+      onDone();
     },
     onError: (error: any) => {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
@@ -742,10 +802,6 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
     updateStatusMutation.mutate({ status: "refusee", commentaire: refuseComment });
     setShowRefuseDialog(false);
     setRefuseComment("");
-  };
-
-  const handlePharmacieRefuse = () => {
-    updateStatusMutation.mutate({ status: "brouillon", commentaire: "Refusée par la pharmacie" });
   };
 
   const confirmDialog = (
@@ -773,28 +829,26 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
     </Dialog>
   );
 
-  // Brouillon → Validee delegue (delegue only)
   if (order.status === "brouillon" && (userRole === "delegue" || userRole === "admin")) {
     return (
       <>
-        <div className="flex gap-1">
+        <div className="flex gap-2 pt-4 border-t">
           <Button
-            size="sm"
             onClick={() => setShowConfirmDialog({ status: "validee_delegue", title: "Valider la commande", message: "Êtes-vous sûr de vouloir valider cette commande ? Elle sera envoyée à la pharmacie pour validation." })}
             disabled={updateStatusMutation.isPending}
             data-testid={`button-validate-delegue-${order.id}`}
           >
             <CheckCircle2 className="w-4 h-4 mr-1" />
-            Valider
+            Valider la commande
           </Button>
           <Button
-            size="sm"
             variant="destructive"
             onClick={() => setShowCancelDialog(true)}
             disabled={cancelMutation.isPending}
             data-testid={`button-cancel-order-${order.id}`}
           >
-            <Ban className="w-4 h-4" />
+            <Ban className="w-4 h-4 mr-1" />
+            Annuler
           </Button>
         </div>
         {confirmDialog}
@@ -816,28 +870,26 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
     );
   }
 
-  // Validee delegue → Validee pharmacie OR refuse back to brouillon (pharmacie only)
   if (order.status === "validee_delegue" && (userRole === "pharmacie" || userRole === "admin")) {
     return (
       <>
-        <div className="flex gap-1">
+        <div className="flex gap-2 pt-4 border-t">
           <Button
-            size="sm"
             onClick={() => setShowConfirmDialog({ status: "validee_pharmacie", title: "Valider la commande", message: "Êtes-vous sûr de vouloir valider cette commande ? Elle sera automatiquement envoyée au grossiste." })}
             disabled={updateStatusMutation.isPending}
             data-testid={`button-validate-pharmacie-${order.id}`}
           >
             <CheckCircle2 className="w-4 h-4 mr-1" />
-            Valider
+            Valider la commande
           </Button>
           <Button
-            size="sm"
             variant="destructive"
             onClick={() => setShowConfirmDialog({ status: "brouillon", title: "Refuser la commande", message: "Êtes-vous sûr de vouloir refuser cette commande ? Elle reviendra en brouillon." })}
             disabled={updateStatusMutation.isPending}
             data-testid={`button-refuse-pharmacie-${order.id}`}
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 mr-1" />
+            Refuser
           </Button>
         </div>
         {confirmDialog}
@@ -880,22 +932,20 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
     setShowPartialDialog(false);
   };
 
-  // Envoyee → acceptee/refusee/partiellement_acceptee (grossiste only)
   if (order.status === "envoyee" && (userRole === "grossiste" || userRole === "admin")) {
     return (
       <>
-        <div className="flex gap-1">
+        <div className="flex gap-2 pt-4 border-t">
           <Button
-            size="sm"
             variant="default"
             onClick={() => setShowConfirmDialog({ status: "acceptee", title: "Accepter la commande", message: "Êtes-vous sûr de vouloir accepter cette commande en totalité ?" })}
             disabled={updateStatusMutation.isPending}
             data-testid={`button-accept-order-${order.id}`}
           >
-            <Check className="w-4 h-4" />
+            <Check className="w-4 h-4 mr-1" />
+            Accepter
           </Button>
           <Button
-            size="sm"
             variant="outline"
             onClick={openPartialDialog}
             disabled={updateStatusMutation.isPending}
@@ -905,13 +955,13 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
             Partiel
           </Button>
           <Button
-            size="sm"
             variant="destructive"
             onClick={() => setShowRefuseDialog(true)}
             disabled={updateStatusMutation.isPending}
             data-testid={`button-refuse-order-${order.id}`}
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 mr-1" />
+            Refuser
           </Button>
         </div>
 
@@ -990,14 +1040,12 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
     );
   }
 
-  // Refusee → reassign or cancel (delegue only)
   if (order.status === "refusee" && (userRole === "delegue" || userRole === "admin")) {
     const availableGrossistes = allGrossistes.filter(g => g.id !== order.grossisteId && !g.blocked);
     return (
       <>
-        <div className="flex gap-1">
+        <div className="flex gap-2 pt-4 border-t">
           <Button
-            size="sm"
             onClick={() => setShowReassignDialog(true)}
             disabled={reassignMutation.isPending}
             data-testid={`button-reassign-order-${order.id}`}
@@ -1006,13 +1054,13 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
             Réattribuer
           </Button>
           <Button
-            size="sm"
             variant="destructive"
             onClick={() => setShowCancelDialog(true)}
             disabled={cancelMutation.isPending}
             data-testid={`button-cancel-refused-${order.id}`}
           >
-            <Ban className="w-4 h-4" />
+            <Ban className="w-4 h-4 mr-1" />
+            Annuler
           </Button>
         </div>
 
@@ -1074,15 +1122,16 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
   if ((order.status === "acceptee" || order.status === "partiellement_acceptee") && (userRole === "grossiste" || userRole === "admin")) {
     return (
       <>
-        <Button
-          size="sm"
-          onClick={() => setShowConfirmDialog({ status: "en_preparation", title: "Préparer la commande", message: "Êtes-vous sûr de vouloir passer cette commande en préparation ?" })}
-          disabled={updateStatusMutation.isPending}
-          data-testid={`button-prepare-order-${order.id}`}
-        >
-          <Package className="w-4 h-4 mr-1" />
-          Préparer
-        </Button>
+        <div className="flex gap-2 pt-4 border-t">
+          <Button
+            onClick={() => setShowConfirmDialog({ status: "en_preparation", title: "Préparer la commande", message: "Êtes-vous sûr de vouloir passer cette commande en préparation ?" })}
+            disabled={updateStatusMutation.isPending}
+            data-testid={`button-prepare-order-${order.id}`}
+          >
+            <Package className="w-4 h-4 mr-1" />
+            Préparer la commande
+          </Button>
+        </div>
         {confirmDialog}
       </>
     );
@@ -1091,21 +1140,22 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
   if (order.status === "en_preparation" && (userRole === "grossiste" || userRole === "admin")) {
     return (
       <>
-        <Button
-          size="sm"
-          onClick={() => {
-            if (order.bonLivraisonUrl) {
-              setShowConfirmDialog({ status: "livree", title: "Marquer comme livrée", message: "Êtes-vous sûr de vouloir marquer cette commande comme livrée ?" });
-            } else {
-              setShowDeliveryDialog(true);
-            }
-          }}
-          disabled={updateStatusMutation.isPending || uploadAndDeliver.isPending}
-          data-testid={`button-deliver-order-${order.id}`}
-        >
-          <Truck className="w-4 h-4 mr-1" />
-          Livrer
-        </Button>
+        <div className="flex gap-2 pt-4 border-t">
+          <Button
+            onClick={() => {
+              if (order.bonLivraisonUrl) {
+                setShowConfirmDialog({ status: "livree", title: "Marquer comme livrée", message: "Êtes-vous sûr de vouloir marquer cette commande comme livrée ?" });
+              } else {
+                setShowDeliveryDialog(true);
+              }
+            }}
+            disabled={updateStatusMutation.isPending || uploadAndDeliver.isPending}
+            data-testid={`button-deliver-order-${order.id}`}
+          >
+            <Truck className="w-4 h-4 mr-1" />
+            Livrer la commande
+          </Button>
+        </div>
         {confirmDialog}
         <Dialog open={showDeliveryDialog} onOpenChange={(open) => { if (!open) { setShowDeliveryDialog(false); setBlFile(null); } }}>
           <DialogContent>
@@ -1148,13 +1198,11 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
     );
   }
 
-  // Livree → cloturee OR litige (pharmacie only - litige ONLY after delivery)
   if (order.status === "livree" && (userRole === "pharmacie" || userRole === "admin")) {
     return (
       <>
-        <div className="flex gap-1">
+        <div className="flex gap-2 pt-4 border-t">
           <Button
-            size="sm"
             variant="default"
             onClick={() => {
               if (order.bonReceptionUrl) {
@@ -1167,16 +1215,16 @@ function OrderActions({ order, userRole, allGrossistes }: OrderActionsProps) {
             data-testid={`button-close-order-${order.id}`}
           >
             <Check className="w-4 h-4 mr-1" />
-            Confirmer
+            Confirmer la réception
           </Button>
           <Button
-            size="sm"
             variant="destructive"
             onClick={() => setShowLitigeDialog(true)}
             disabled={updateStatusMutation.isPending}
             data-testid={`button-dispute-order-${order.id}`}
           >
-            <AlertTriangle className="w-4 h-4" />
+            <AlertTriangle className="w-4 h-4 mr-1" />
+            Litige
           </Button>
         </div>
         <Dialog open={showCloseDialog} onOpenChange={(open) => { if (!open) { setShowCloseDialog(false); setBrFile(null); } }}>
@@ -1256,9 +1304,10 @@ interface OrderDetailsProps {
   order: OrderWithRelations;
   userRole: string;
   onClose: () => void;
+  allGrossistes: Entity[];
 }
 
-function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
+function OrderDetails({ order, userRole, onClose, allGrossistes }: OrderDetailsProps) {
   const { toast } = useToast();
   const [uploadingBL, setUploadingBL] = useState(false);
   const [uploadingBR, setUploadingBR] = useState(false);
@@ -1616,6 +1665,13 @@ function OrderDetails({ order, userRole, onClose }: OrderDetailsProps) {
             </CardContent>
           </Card>
         )}
+
+        <OrderDetailActions
+          order={order}
+          userRole={userRole}
+          allGrossistes={allGrossistes}
+          onDone={onClose}
+        />
       </div>
     </>
   );
