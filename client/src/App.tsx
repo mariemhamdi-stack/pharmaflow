@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
 
 import LoginPage from "@/pages/login";
+import HomePage from "@/pages/home";
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
 const OrdersPage = lazy(() => import("@/pages/orders"));
 const ProductsPage = lazy(() => import("@/pages/products"));
@@ -49,7 +50,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <LoginPage />;
+    return (
+      <Switch>
+        <Route path="/login" component={LoginPage} />
+        <Route component={HomePage} />
+      </Switch>
+    );
   }
 
   return <>{children}</>;

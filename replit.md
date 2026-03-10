@@ -129,6 +129,12 @@ npm run db:push   # Appliquer les migrations
 ```
 
 ## Recent Changes
+- 2026-03-10: Page d'accueil initiale avec sélection de rôle
+  - Nouvelle page home.tsx affichant 4 rôles (Laboratoire, Délégué, Grossiste, Pharmacie) — admin exclu
+  - Clic sur un rôle redirige vers /login
+  - Bouton "Retour" sur la page de connexion pour revenir à l'accueil
+  - Routing mis à jour : utilisateurs non connectés voient la page d'accueil par défaut, /login pour le formulaire
+  - Suppression des comptes de test et du placeholder email sur la page de connexion
 - 2026-02-19: Ajout champs et filtres + import fichier
   - Produits : ajout champ "spécialité" dans le formulaire, la table et la recherche
   - Pharmacies : ajout champs "région" et "secteur", filtres par région/secteur/classe

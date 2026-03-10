@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { Pill, Lock, Mail, Loader2, Eye, EyeOff } from "lucide-react";
+import { Pill, Lock, Mail, Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import sentinelLogo from "@assets/logo_1771319487082.png";
 
@@ -56,6 +56,14 @@ export default function LoginPage() {
       
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
+          <button
+            onClick={() => setLocation("/")}
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+            data-testid="button-back-home"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Retour
+          </button>
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
             <Pill className="w-8 h-8 text-primary" />
           </div>
