@@ -84,11 +84,10 @@ export default function HomePage() {
             </div>
             <h1 className="text-4xl font-bold text-foreground" data-testid="text-app-title">PharmaFlow</h1>
             <p className="text-lg text-muted-foreground mt-2">Gestion des commandes pharmaceutiques</p>
-            <p className="text-muted-foreground mt-1 text-sm">Plateforme de suivi et de traçabilité entre laboratoires, délégués, grossistes et pharmacies</p>
+            <p className="text-sm font-medium text-foreground mt-4">Sélectionnez votre profil pour continuer</p>
           </div>
 
           <div className="mb-10">
-            <p className="text-center text-sm font-medium text-foreground mb-4">Sélectionnez votre profil pour continuer</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {roles.map((role) => {
                 const Icon = role.icon;
