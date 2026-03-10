@@ -79,7 +79,7 @@ export default function HomePage() {
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
         <div className="w-full max-w-4xl">
           <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-5">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-3">
               <Pill className="w-10 h-10 text-primary" />
             </div>
             <h1 className="text-4xl font-bold text-foreground" data-testid="text-app-title">PharmaFlow</h1>
