@@ -56,14 +56,6 @@ export default function LoginPage() {
       
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <button
-            onClick={() => setLocation("/")}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-            data-testid="button-back-home"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Retour
-          </button>
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
             <Pill className="w-8 h-8 text-primary" />
           </div>
@@ -156,6 +148,17 @@ export default function LoginPage() {
 
           </CardContent>
         </Card>
+
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => setLocation("/")}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="button-back-home"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Retour à l'accueil
+          </button>
+        </div>
       </div>
     </div>
   );
