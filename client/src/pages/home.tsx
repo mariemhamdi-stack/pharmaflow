@@ -101,16 +101,16 @@ const features = [
 ];
 
 const steps = [
-  { number: "01", title: "Création", description: "Le délégué crée la commande avec les produits et quantités souhaités." },
-  { number: "02", title: "Validation délégué", description: "Le délégué valide et soumet la commande pour approbation." },
-  { number: "03", title: "Validation pharmacie", description: "La pharmacie examine et confirme la commande." },
-  { number: "04", title: "Livraison", description: "Le grossiste traite, prépare et livre la commande." },
+  { number: "01", title: "Catalogue", description: "Le laboratoire référence ses produits, offres et actions marketing sur la plateforme." },
+  { number: "02", title: "Création", description: "Le délégué crée la commande avec les produits et quantités souhaités." },
+  { number: "03", title: "Validation délégué", description: "Le délégué valide et soumet la commande pour approbation." },
+  { number: "04", title: "Validation pharmacie", description: "La pharmacie examine et confirme la commande." },
+  { number: "05", title: "Livraison", description: "Le grossiste traite, prépare et livre la commande." },
 ];
 
 const impacts = [
   { value: "100%", label: "Traçabilité", description: "Suivi complet de chaque commande" },
   { value: "2x", label: "Validation", description: "Double contrôle systématique" },
-  { value: "0", label: "Perte de données", description: "Historique immuable garanti" },
   { value: "24/7", label: "Accessibilité", description: "Plateforme disponible en continu" },
 ];
 
@@ -259,9 +259,9 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Comment ça fonctionne</h2>
-            <p className="text-muted-foreground mt-2">Un processus clair en 4 étapes pour chaque commande</p>
+            <p className="text-muted-foreground mt-2">Un processus clair en 5 étapes pour chaque commande</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-6">
             {steps.map((step, index) => (
               <div key={step.number} className="relative text-center">
                 {index < steps.length - 1 && (
@@ -284,7 +284,7 @@ export default function HomePage() {
             <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Impact</h2>
             <p className="text-muted-foreground mt-2">Les bénéfices concrets de PharmaFlow pour votre activité</p>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {impacts.map((impact) => (
               <div key={impact.label} className="text-center p-6 rounded-2xl bg-card border border-border/40">
                 <div className="text-3xl sm:text-4xl font-bold text-primary mb-1">{impact.value}</div>
