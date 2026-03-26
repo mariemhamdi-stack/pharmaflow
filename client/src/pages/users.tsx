@@ -76,25 +76,24 @@ export default function UsersPage() {
             {isLabView ? "Les délégués rattachés à votre laboratoire" : "Gérez les utilisateurs du système"}
           </p>
         </div>
-        {!isLabView && (
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-create-user">
-                <Plus className="w-4 h-4 mr-2" />
-                Nouvel utilisateur
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <UserForm 
-                entities={entities || []}
-                onSuccess={() => {
-                  setIsCreateOpen(false);
-                  queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-                }}
-              />
-            </DialogContent>
-          </Dialog>
-        )}
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-create-user">
+              <Plus className="w-4 h-4 mr-2" />
+              {isLabView ? "Ajouter un délégué" : "Nouvel utilisateur"}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <UserForm 
+              entities={entities || []}
+              isLabView={isLabView}
+              onSuccess={() => {
+                setIsCreateOpen(false);
+                queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
@@ -210,6 +209,7 @@ export default function UsersPage() {
             <UserForm 
               user={editingUser}
               entities={entities || []}
+              isLabView={isLabView}
               onSuccess={() => {
                 setEditingUser(null);
                 queryClient.invalidateQueries({ queryKey: ["/api/users"] });
@@ -225,10 +225,11 @@ export default function UsersPage() {
 interface UserFormProps {
   user?: User;
   entities: Entity[];
+  isLabView?: boolean;
   onSuccess: () => void;
 }
 
-function UserForm({ user, entities, onSuccess }: UserFormProps) {
+function UserForm({ user, entities, isLabView, onSuccess }: UserFormProps) {
   const { toast } = useToast();
   const [nom, setNom] = useState(user?.nom || "");
   const [prenom, setPrenom] = useState(user?.prenom || "");
@@ -319,9 +320,11 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{user ? "Modifier l'utilisateur" : "Nouvel utilisateur"}</DialogTitle>
+        <DialogTitle>{isLabView ? (user ? "Modifier le délégué" : "Ajouter un délégué") : (user ? "Modifier l'utilisateur" : "Nouvel utilisateur")}</DialogTitle>
         <DialogDescription>
-          {user ? "Modifiez les informations de l'utilisateur" : "Créez un nouveau compte utilisateur"}
+          {isLabView
+            ? (user ? "Modifiez les informations du délégué" : "Ajoutez un nouveau délégué rattaché à votre laboratoire")
+            : (user ? "Modifiez les informations de l'utilisateur" : "Créez un nouveau compte utilisateur")}
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -392,37 +395,56 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Rôle *</label>
-            <Select value={role} onValueChange={(v) => { setRole(v); setEntityId(""); }}>
-              <SelectTrigger data-testid="select-user-role">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Administrateur</SelectItem>
-                <SelectItem value="laboratoire">Laboratoire</SelectItem>
-                <SelectItem value="delegue">Délégué</SelectItem>
-                <SelectItem value="grossiste">Grossiste</SelectItem>
-                <SelectItem value="pharmacie">Pharmacie</SelectItem>
-              </SelectContent>
-            </Select>
+        {!isLabView && (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Rôle *</label>
+              <Select value={role} onValueChange={(v) => { setRole(v); setEntityId(""); }}>
+                <SelectTrigger data-testid="select-user-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Administrateur</SelectItem>
+                  <SelectItem value="laboratoire">Laboratoire</SelectItem>
+                  <SelectItem value="delegue">Délégué</SelectItem>
+                  <SelectItem value="grossiste">Grossiste</SelectItem>
+                  <SelectItem value="pharmacie">Pharmacie</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Statut</label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger data-testid="select-user-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="actif">Actif</SelectItem>
+                  <SelectItem value="suspendu">Suspendu</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Statut</label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger data-testid="select-user-status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="actif">Actif</SelectItem>
-                <SelectItem value="suspendu">Suspendu</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        )}
 
-        {role === "delegue" && (
+        {isLabView && user && (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Statut</label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger data-testid="select-user-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="actif">Actif</SelectItem>
+                  <SelectItem value="suspendu">Suspendu</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {!isLabView && role === "delegue" && (
           <div className="space-y-2">
             <label className="text-sm font-medium">Laboratoires associés</label>
             <Input
@@ -464,7 +486,7 @@ function UserForm({ user, entities, onSuccess }: UserFormProps) {
           </div>
         )}
 
-        {role !== "admin" && role !== "delegue" && filteredEntities.length > 0 && (
+        {!isLabView && role !== "admin" && role !== "delegue" && filteredEntities.length > 0 && (
           <div className="space-y-2">
             <label className="text-sm font-medium">Entité associée</label>
             <Select value={entityId} onValueChange={setEntityId}>

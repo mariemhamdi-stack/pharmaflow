@@ -165,6 +165,7 @@ export async function registerRoutes(
       const userData = insertUserSchema.parse(req.body);
 
       if (currentUser.role === "laboratoire") {
+        userData.role = "delegue";
         userData.entityId = currentUser.entityId;
       }
 
@@ -173,6 +174,14 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Email déjà utilisé" });
       }
       const user = await storage.createUser(userData);
+
+      if (currentUser.role === "laboratoire" && currentUser.entityId) {
+        const existingLaboIds = await storage.getDelegueLaboratoireIds(user.id);
+        if (!existingLaboIds.includes(currentUser.entityId)) {
+          await storage.setDelegueLaboratoires(user.id, [...existingLaboIds, currentUser.entityId]);
+        }
+      }
+
       const { password: _, ...userWithoutPassword } = user;
       res.status(201).json(userWithoutPassword);
     } catch (error) {
@@ -187,8 +196,12 @@ export async function registerRoutes(
 
       if (currentUser.role === "laboratoire") {
         const targetUser = await storage.getUser(id);
-        if (!targetUser || targetUser.entityId !== currentUser.entityId) {
-          return res.status(403).json({ error: "Vous ne pouvez modifier que les utilisateurs de votre laboratoire" });
+        if (!targetUser || targetUser.role !== "delegue") {
+          return res.status(403).json({ error: "Vous ne pouvez modifier que les délégués" });
+        }
+        const delegueIds = currentUser.entityId ? await storage.getDelegueIdsForLaboratoire(currentUser.entityId) : [];
+        if (targetUser.entityId !== currentUser.entityId && !delegueIds.includes(id)) {
+          return res.status(403).json({ error: "Ce délégué n'est pas rattaché à votre laboratoire" });
         }
       }
 
