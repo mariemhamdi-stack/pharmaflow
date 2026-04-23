@@ -205,6 +205,7 @@ export default function GrossistesPage() {
                     <TableHead>Nom</TableHead>
                     <TableHead>Région</TableHead>
                     <TableHead>Gouvernerat</TableHead>
+                    <TableHead>Délégation</TableHead>
                     <TableHead>Secteur</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Téléphone</TableHead>
@@ -225,6 +226,7 @@ export default function GrossistesPage() {
                       </TableCell>
                       <TableCell data-testid={`text-region-grossiste-${g.id}`}>{g.region || "-"}</TableCell>
                       <TableCell>{g.gouvernerat || "-"}</TableCell>
+                      <TableCell data-testid={`text-delegation-grossiste-${g.id}`}>{g.delegation || "-"}</TableCell>
                       <TableCell data-testid={`text-secteur-grossiste-${g.id}`}>{g.secteur || "-"}</TableCell>
                       <TableCell>{g.email1 || "-"}</TableCell>
                       <TableCell>{g.tel1 || g.gsm1 || "-"}</TableCell>
