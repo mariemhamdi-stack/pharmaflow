@@ -19,7 +19,6 @@ export default function GrossistesPage() {
   const [filterGouvernerat, setFilterGouvernerat] = useState("all");
   const [filterDelegation, setFilterDelegation] = useState("all");
   const [filterSecteur, setFilterSecteur] = useState("all");
-  const [filterTendance, setFilterTendance] = useState("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingGrossiste, setEditingGrossiste] = useState<Grossiste | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -33,7 +32,6 @@ export default function GrossistesPage() {
   const gouvernerats = Array.from(new Set(grossistes?.map(e => e.gouvernerat).filter(Boolean) as string[])).sort();
   const delegations = Array.from(new Set(grossistes?.map(e => e.delegation).filter(Boolean) as string[])).sort();
   const secteurs = Array.from(new Set(grossistes?.map(e => e.secteur).filter(Boolean) as string[])).sort();
-  const tendances = Array.from(new Set(grossistes?.map(e => e.tendance).filter(Boolean) as string[])).sort();
 
   const filteredGrossistes = grossistes?.filter(g => {
     const searchLower = search.toLowerCase();
@@ -49,8 +47,7 @@ export default function GrossistesPage() {
     const matchesGouvernerat = filterGouvernerat === "all" || g.gouvernerat === filterGouvernerat;
     const matchesDelegation = filterDelegation === "all" || g.delegation === filterDelegation;
     const matchesSecteur = filterSecteur === "all" || g.secteur === filterSecteur;
-    const matchesTendance = filterTendance === "all" || g.tendance === filterTendance;
-    return matchesSearch && matchesRegion && matchesGouvernerat && matchesDelegation && matchesSecteur && matchesTendance;
+    return matchesSearch && matchesRegion && matchesGouvernerat && matchesDelegation && matchesSecteur;
   });
 
   const uploadMutation = useMutation({
@@ -204,15 +201,6 @@ export default function GrossistesPage() {
                 className="w-[180px]"
                 testId="filter-secteur-grossistes"
               />
-              <FilterCombobox
-                value={filterTendance}
-                onValueChange={setFilterTendance}
-                options={tendances}
-                placeholder="Rechercher une tendance..."
-                allLabel="Toutes les tendances"
-                className="w-[180px]"
-                testId="filter-tendance-grossistes"
-              />
             </div>
           </div>
         </CardHeader>
@@ -228,7 +216,7 @@ export default function GrossistesPage() {
               <Truck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground">Aucun grossiste</h3>
               <p className="text-muted-foreground mt-1">
-                {search || filterRegion !== "all" || filterGouvernerat !== "all" || filterDelegation !== "all" || filterSecteur !== "all" || filterTendance !== "all"
+                {search || filterRegion !== "all" || filterGouvernerat !== "all" || filterDelegation !== "all" || filterSecteur !== "all"
                   ? "Aucun grossiste ne correspond à vos critères"
                   : "Commencez par ajouter des grossistes"}
               </p>
