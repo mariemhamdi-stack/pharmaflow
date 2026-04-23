@@ -17,8 +17,11 @@ export default function PharmaciesPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [filterRegion, setFilterRegion] = useState("all");
+  const [filterGouvernerat, setFilterGouvernerat] = useState("all");
+  const [filterDelegation, setFilterDelegation] = useState("all");
   const [filterSecteur, setFilterSecteur] = useState("all");
   const [filterClasse, setFilterClasse] = useState("all");
+  const [filterTendance, setFilterTendance] = useState("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingPharmacie, setEditingPharmacie] = useState<Pharmacie | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -30,8 +33,11 @@ export default function PharmaciesPage() {
   });
 
   const regions = Array.from(new Set(pharmacies?.map(e => e.region).filter(Boolean) as string[])).sort();
+  const gouvernerats = Array.from(new Set(pharmacies?.map(e => e.gouvernerat).filter(Boolean) as string[])).sort();
+  const delegations = Array.from(new Set(pharmacies?.map(e => e.delegation).filter(Boolean) as string[])).sort();
   const secteurs = Array.from(new Set(pharmacies?.map(e => e.secteur).filter(Boolean) as string[])).sort();
-  const classes = Array.from(new Set(pharmacies?.map(e => e.classification).filter(Boolean) as string[])).sort();
+  const classes = Array.from(new Set(pharmacies?.map(e => e.ciblage).filter(Boolean) as string[])).sort();
+  const tendances = Array.from(new Set(pharmacies?.map(e => e.tendance).filter(Boolean) as string[])).sort();
 
   const filteredPharmacies = pharmacies?.filter(p => {
     const searchLower = search.toLowerCase();
@@ -47,9 +53,12 @@ export default function PharmaciesPage() {
       p.gouvernerat?.toLowerCase().includes(searchLower)
     );
     const matchesRegion = filterRegion === "all" || p.region === filterRegion;
+    const matchesGouvernerat = filterGouvernerat === "all" || p.gouvernerat === filterGouvernerat;
+    const matchesDelegation = filterDelegation === "all" || p.delegation === filterDelegation;
     const matchesSecteur = filterSecteur === "all" || p.secteur === filterSecteur;
-    const matchesClasse = filterClasse === "all" || p.classification === filterClasse;
-    return matchesSearch && matchesRegion && matchesSecteur && matchesClasse;
+    const matchesClasse = filterClasse === "all" || p.ciblage === filterClasse;
+    const matchesTendance = filterTendance === "all" || p.tendance === filterTendance;
+    return matchesSearch && matchesRegion && matchesGouvernerat && matchesDelegation && matchesSecteur && matchesClasse && matchesTendance;
   });
 
   const uploadMutation = useMutation({
@@ -239,6 +248,24 @@ export default function PharmaciesPage() {
                 testId="filter-region-pharmacies"
               />
               <FilterCombobox
+                value={filterGouvernerat}
+                onValueChange={setFilterGouvernerat}
+                options={gouvernerats}
+                placeholder="Rechercher un gouvernerat..."
+                allLabel="Tous les gouvernerats"
+                className="w-[180px]"
+                testId="filter-gouvernerat-pharmacies"
+              />
+              <FilterCombobox
+                value={filterDelegation}
+                onValueChange={setFilterDelegation}
+                options={delegations}
+                placeholder="Rechercher une délégation..."
+                allLabel="Toutes les délégations"
+                className="w-[180px]"
+                testId="filter-delegation-pharmacies"
+              />
+              <FilterCombobox
                 value={filterSecteur}
                 onValueChange={setFilterSecteur}
                 options={secteurs}
@@ -256,6 +283,15 @@ export default function PharmaciesPage() {
                 className="w-[180px]"
                 testId="filter-classe-pharmacies"
               />
+              <FilterCombobox
+                value={filterTendance}
+                onValueChange={setFilterTendance}
+                options={tendances}
+                placeholder="Rechercher une tendance..."
+                allLabel="Toutes les tendances"
+                className="w-[180px]"
+                testId="filter-tendance-pharmacies"
+              />
             </div>
           </div>
         </CardHeader>
@@ -271,7 +307,7 @@ export default function PharmaciesPage() {
               <Store className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground">Aucune pharmacie</h3>
               <p className="text-muted-foreground mt-1">
-                {search || filterRegion !== "all" || filterSecteur !== "all" || filterClasse !== "all"
+                {search || filterRegion !== "all" || filterGouvernerat !== "all" || filterDelegation !== "all" || filterSecteur !== "all" || filterClasse !== "all" || filterTendance !== "all"
                   ? "Aucune pharmacie ne correspond à vos critères"
                   : "Commencez par ajouter des pharmacies"}
               </p>

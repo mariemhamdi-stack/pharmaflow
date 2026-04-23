@@ -16,7 +16,10 @@ export default function GrossistesPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [filterRegion, setFilterRegion] = useState("all");
+  const [filterGouvernerat, setFilterGouvernerat] = useState("all");
+  const [filterDelegation, setFilterDelegation] = useState("all");
   const [filterSecteur, setFilterSecteur] = useState("all");
+  const [filterTendance, setFilterTendance] = useState("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingGrossiste, setEditingGrossiste] = useState<Grossiste | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -27,7 +30,10 @@ export default function GrossistesPage() {
   });
 
   const regions = Array.from(new Set(grossistes?.map(e => e.region).filter(Boolean) as string[])).sort();
+  const gouvernerats = Array.from(new Set(grossistes?.map(e => e.gouvernerat).filter(Boolean) as string[])).sort();
+  const delegations = Array.from(new Set(grossistes?.map(e => e.delegation).filter(Boolean) as string[])).sort();
   const secteurs = Array.from(new Set(grossistes?.map(e => e.secteur).filter(Boolean) as string[])).sort();
+  const tendances = Array.from(new Set(grossistes?.map(e => e.tendance).filter(Boolean) as string[])).sort();
 
   const filteredGrossistes = grossistes?.filter(g => {
     const searchLower = search.toLowerCase();
@@ -40,8 +46,11 @@ export default function GrossistesPage() {
       g.gouvernerat?.toLowerCase().includes(searchLower)
     );
     const matchesRegion = filterRegion === "all" || g.region === filterRegion;
+    const matchesGouvernerat = filterGouvernerat === "all" || g.gouvernerat === filterGouvernerat;
+    const matchesDelegation = filterDelegation === "all" || g.delegation === filterDelegation;
     const matchesSecteur = filterSecteur === "all" || g.secteur === filterSecteur;
-    return matchesSearch && matchesRegion && matchesSecteur;
+    const matchesTendance = filterTendance === "all" || g.tendance === filterTendance;
+    return matchesSearch && matchesRegion && matchesGouvernerat && matchesDelegation && matchesSecteur && matchesTendance;
   });
 
   const uploadMutation = useMutation({
@@ -169,6 +178,24 @@ export default function GrossistesPage() {
                 testId="filter-region-grossistes"
               />
               <FilterCombobox
+                value={filterGouvernerat}
+                onValueChange={setFilterGouvernerat}
+                options={gouvernerats}
+                placeholder="Rechercher un gouvernerat..."
+                allLabel="Tous les gouvernerats"
+                className="w-[180px]"
+                testId="filter-gouvernerat-grossistes"
+              />
+              <FilterCombobox
+                value={filterDelegation}
+                onValueChange={setFilterDelegation}
+                options={delegations}
+                placeholder="Rechercher une délégation..."
+                allLabel="Toutes les délégations"
+                className="w-[180px]"
+                testId="filter-delegation-grossistes"
+              />
+              <FilterCombobox
                 value={filterSecteur}
                 onValueChange={setFilterSecteur}
                 options={secteurs}
@@ -176,6 +203,15 @@ export default function GrossistesPage() {
                 allLabel="Tous les secteurs"
                 className="w-[180px]"
                 testId="filter-secteur-grossistes"
+              />
+              <FilterCombobox
+                value={filterTendance}
+                onValueChange={setFilterTendance}
+                options={tendances}
+                placeholder="Rechercher une tendance..."
+                allLabel="Toutes les tendances"
+                className="w-[180px]"
+                testId="filter-tendance-grossistes"
               />
             </div>
           </div>
@@ -192,7 +228,7 @@ export default function GrossistesPage() {
               <Truck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground">Aucun grossiste</h3>
               <p className="text-muted-foreground mt-1">
-                {search || filterRegion !== "all" || filterSecteur !== "all"
+                {search || filterRegion !== "all" || filterGouvernerat !== "all" || filterDelegation !== "all" || filterSecteur !== "all" || filterTendance !== "all"
                   ? "Aucun grossiste ne correspond à vos critères"
                   : "Commencez par ajouter des grossistes"}
               </p>
