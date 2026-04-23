@@ -1,5 +1,6 @@
 import { db } from "./db";
-import { users, entities, products, delegueLaboratoires, orders, orderLines, orderHistory, notifications, commercialOffers, commercialActions, communications } from "@shared/schema";
+import { users, entities, pharmacies, grossistes, products, delegueLaboratoires, orders, orderLines, orderHistory, notifications, commercialOffers, commercialActions, communications } from "@shared/schema";
+import { inArray } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 
@@ -58,6 +59,75 @@ async function insertInBatches(table: any, data: any[], batchSize = 500) {
   }
 }
 
+// One-time migration: move type=pharmacie/grossiste rows from `entities` table
+// into dedicated `pharmacies` and `grossistes` tables, preserving IDs (so existing
+// orders.pharmacieId / orders.grossisteId / users.entityId references still resolve).
+async function migratePharmaciesAndGrossistes() {
+  try {
+    const existingPharmacies = await db.select().from(pharmacies);
+    const existingGrossistes = await db.select().from(grossistes);
+    if (existingPharmacies.length > 0 || existingGrossistes.length > 0) {
+      return; // already migrated
+    }
+    const allEntities = await db.select().from(entities);
+    const pharmacieRows: any[] = [];
+    const grossisteRows: any[] = [];
+
+    for (const e of allEntities) {
+      if (e.type === "pharmacie") {
+        pharmacieRows.push({
+          id: e.id,
+          nom: e.nom,
+          adresse: e.adresse ?? null,
+          tel1: e.telephone ?? null,
+          email1: e.email ?? null,
+          region: e.region ?? null,
+          secteur: e.secteur ?? null,
+          classification: e.classification ?? null,
+          proprietaire: e.proprietaire ?? null,
+          pharmacienResponsable: e.pharmacienResponsable ?? null,
+          preparateurs: e.preparateurs ?? null,
+          blocked: e.blocked ?? false,
+          blockedAt: e.blockedAt ?? null,
+          createdAt: e.createdAt,
+        });
+      } else if (e.type === "grossiste") {
+        grossisteRows.push({
+          id: e.id,
+          nom: e.nom,
+          adresse: e.adresse ?? null,
+          tel1: e.telephone ?? null,
+          email1: e.email ?? null,
+          region: e.region ?? null,
+          secteur: e.secteur ?? null,
+          blocked: e.blocked ?? false,
+          blockedAt: e.blockedAt ?? null,
+          createdAt: e.createdAt,
+        });
+      }
+    }
+
+    if (pharmacieRows.length > 0) {
+      console.log(`Migrating ${pharmacieRows.length} pharmacies from entities table...`);
+      for (let i = 0; i < pharmacieRows.length; i += 200) {
+        await db.insert(pharmacies).values(pharmacieRows.slice(i, i + 200));
+      }
+    }
+    if (grossisteRows.length > 0) {
+      console.log(`Migrating ${grossisteRows.length} grossistes from entities table...`);
+      for (let i = 0; i < grossisteRows.length; i += 200) {
+        await db.insert(grossistes).values(grossisteRows.slice(i, i + 200));
+      }
+    }
+    if (pharmacieRows.length > 0 || grossisteRows.length > 0) {
+      console.log("Removing migrated rows from entities table...");
+      await db.delete(entities).where(inArray(entities.type, ["pharmacie", "grossiste"]));
+    }
+  } catch (err) {
+    console.error("Migration error (pharmacies/grossistes):", err);
+  }
+}
+
 export async function seedDatabase() {
   let existingUserCount = 0;
   let existingEntityCount = 0;
@@ -75,7 +145,8 @@ export async function seedDatabase() {
   }
 
   if (existingUserCount > 0 && existingEntityCount > 100 && existingProductCount > 100) {
-    console.log("Database already fully seeded, skipping...");
+    console.log("Database already fully seeded, skipping seed.");
+    await migratePharmaciesAndGrossistes();
     return;
   }
 
@@ -93,6 +164,8 @@ export async function seedDatabase() {
       await db.delete(products);
       await db.delete(users);
       await db.delete(entities);
+      await db.delete(pharmacies);
+      await db.delete(grossistes);
     } catch (err) {
       console.log("Warning during cleanup:", err);
     }
@@ -103,9 +176,60 @@ export async function seedDatabase() {
   const fullExport = loadFullExport();
   if (fullExport) {
     console.log("Seeding from full export (dev-data.json)...");
+
+    // Split entities by type: laboratoires stay in entities; pharmacies/grossistes move to dedicated tables
+    if (Array.isArray(fullExport.entities)) {
+      const allEntities = fullExport.entities;
+      const entityRows: any[] = [];
+      const pharmacieRows: any[] = [];
+      const grossisteRows: any[] = [];
+
+      for (const e of allEntities) {
+        if (e.type === "pharmacie") {
+          pharmacieRows.push({
+            id: e.id,
+            nom: e.nom,
+            adresse: e.adresse ?? null,
+            tel1: e.telephone ?? null,
+            email1: e.email ?? null,
+            region: e.region ?? null,
+            secteur: e.secteur ?? null,
+            classification: e.classification ?? null,
+            proprietaire: e.proprietaire ?? null,
+            pharmacienResponsable: e.pharmacienResponsable ?? null,
+            preparateurs: e.preparateurs ?? null,
+            blocked: e.blocked ?? false,
+            blockedAt: e.blockedAt ?? null,
+            createdAt: e.createdAt,
+          });
+        } else if (e.type === "grossiste") {
+          grossisteRows.push({
+            id: e.id,
+            nom: e.nom,
+            adresse: e.adresse ?? null,
+            tel1: e.telephone ?? null,
+            email1: e.email ?? null,
+            region: e.region ?? null,
+            secteur: e.secteur ?? null,
+            blocked: e.blocked ?? false,
+            blockedAt: e.blockedAt ?? null,
+            createdAt: e.createdAt,
+          });
+        } else {
+          entityRows.push(e);
+        }
+      }
+
+      fullExport.entities = entityRows;
+      fullExport.pharmacies = pharmacieRows;
+      fullExport.grossistes = grossisteRows;
+    }
+
     try {
       const tableInserts: [string, any, number?][] = [
         ["entities", entities, 200],
+        ["pharmacies", pharmacies, 200],
+        ["grossistes", grossistes, 200],
         ["users", users],
         ["delegueLaboratoires", delegueLaboratoires],
         ["products", products, 200],

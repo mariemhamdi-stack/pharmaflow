@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Entity } from "@shared/schema";
+import type { Grossiste } from "@shared/schema";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,30 +18,29 @@ export default function GrossistesPage() {
   const [filterRegion, setFilterRegion] = useState("all");
   const [filterSecteur, setFilterSecteur] = useState("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingEntity, setEditingEntity] = useState<Entity | null>(null);
+  const [editingGrossiste, setEditingGrossiste] = useState<Grossiste | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: entities, isLoading } = useQuery<Entity[]>({
-    queryKey: ["/api/entities"]
+  const { data: grossistes, isLoading } = useQuery<Grossiste[]>({
+    queryKey: ["/api/grossistes"]
   });
-
-  const grossistes = entities?.filter(e => e.type === "grossiste");
 
   const regions = Array.from(new Set(grossistes?.map(e => e.region).filter(Boolean) as string[])).sort();
   const secteurs = Array.from(new Set(grossistes?.map(e => e.secteur).filter(Boolean) as string[])).sort();
 
-  const filteredGrossistes = grossistes?.filter(entity => {
+  const filteredGrossistes = grossistes?.filter(g => {
     const searchLower = search.toLowerCase();
     const matchesSearch = !search || (
-      entity.nom.toLowerCase().includes(searchLower) ||
-      entity.email?.toLowerCase().includes(searchLower) ||
-      entity.adresse?.toLowerCase().includes(searchLower) ||
-      entity.region?.toLowerCase().includes(searchLower) ||
-      entity.secteur?.toLowerCase().includes(searchLower)
+      g.nom.toLowerCase().includes(searchLower) ||
+      g.email1?.toLowerCase().includes(searchLower) ||
+      g.adresse?.toLowerCase().includes(searchLower) ||
+      g.region?.toLowerCase().includes(searchLower) ||
+      g.secteur?.toLowerCase().includes(searchLower) ||
+      g.gouvernerat?.toLowerCase().includes(searchLower)
     );
-    const matchesRegion = filterRegion === "all" || entity.region === filterRegion;
-    const matchesSecteur = filterSecteur === "all" || entity.secteur === filterSecteur;
+    const matchesRegion = filterRegion === "all" || g.region === filterRegion;
+    const matchesSecteur = filterSecteur === "all" || g.secteur === filterSecteur;
     return matchesSearch && matchesRegion && matchesSecteur;
   });
 
@@ -66,7 +65,7 @@ export default function GrossistesPage() {
         title: "Importation réussie",
         description: `${data.imported} grossiste(s) importé(s) avec succès`
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/grossistes"] });
       setIsUploadOpen(false);
     },
     onError: (error: Error) => {
@@ -76,9 +75,7 @@ export default function GrossistesPage() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      uploadMutation.mutate(file);
-    }
+    if (file) uploadMutation.mutate(file);
   };
 
   return (
@@ -100,15 +97,14 @@ export default function GrossistesPage() {
               <DialogHeader>
                 <DialogTitle>Importer des grossistes</DialogTitle>
                 <DialogDescription>
-                  Uploadez un fichier CSV contenant la liste des grossistes à importer.
-                  Le fichier doit contenir les colonnes : nom, email, telephone, adresse, region, secteur
+                  Uploadez un fichier CSV. Pour importer pharmacies + grossistes en une fois (Excel), utilisez le bouton Importer de la page Pharmacies.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="border-2 border-dashed rounded-md p-8 text-center">
                   <FileSpreadsheet className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-sm text-muted-foreground mb-4">
-                    Format accepté : .csv (séparateur virgule, point-virgule ou tabulation)
+                    Format accepté : .csv (colonnes : nom, email, telephone, adresse, region, secteur)
                   </p>
                   <input
                     ref={fileInputRef}
@@ -141,7 +137,7 @@ export default function GrossistesPage() {
               <GrossisteForm
                 onSuccess={() => {
                   setIsCreateOpen(false);
-                  queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/grossistes"] });
                 }}
               />
             </DialogContent>
@@ -208,6 +204,7 @@ export default function GrossistesPage() {
                   <TableRow>
                     <TableHead>Nom</TableHead>
                     <TableHead>Région</TableHead>
+                    <TableHead>Gouvernerat</TableHead>
                     <TableHead>Secteur</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Téléphone</TableHead>
@@ -216,27 +213,28 @@ export default function GrossistesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredGrossistes?.map((entity) => (
-                    <TableRow key={entity.id} className="hover-elevate" data-testid={`row-grossiste-${entity.id}`}>
+                  {filteredGrossistes?.map((g) => (
+                    <TableRow key={g.id} className="hover-elevate" data-testid={`row-grossiste-${g.id}`}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded flex items-center justify-center bg-chart-3/20 text-chart-3">
                             <Truck className="w-4 h-4" />
                           </div>
-                          <span className="font-medium">{entity.nom}</span>
+                          <span className="font-medium">{g.nom}</span>
                         </div>
                       </TableCell>
-                      <TableCell data-testid={`text-region-grossiste-${entity.id}`}>{entity.region || "-"}</TableCell>
-                      <TableCell data-testid={`text-secteur-grossiste-${entity.id}`}>{entity.secteur || "-"}</TableCell>
-                      <TableCell>{entity.email || "-"}</TableCell>
-                      <TableCell>{entity.telephone || "-"}</TableCell>
-                      <TableCell className="max-w-xs truncate">{entity.adresse || "-"}</TableCell>
+                      <TableCell data-testid={`text-region-grossiste-${g.id}`}>{g.region || "-"}</TableCell>
+                      <TableCell>{g.gouvernerat || "-"}</TableCell>
+                      <TableCell data-testid={`text-secteur-grossiste-${g.id}`}>{g.secteur || "-"}</TableCell>
+                      <TableCell>{g.email1 || "-"}</TableCell>
+                      <TableCell>{g.tel1 || g.gsm1 || "-"}</TableCell>
+                      <TableCell className="max-w-xs truncate">{g.adresse || "-"}</TableCell>
                       <TableCell className="text-right">
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => setEditingEntity(entity)}
-                          data-testid={`button-edit-grossiste-${entity.id}`}
+                          onClick={() => setEditingGrossiste(g)}
+                          data-testid={`button-edit-grossiste-${g.id}`}
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -250,14 +248,14 @@ export default function GrossistesPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!editingEntity} onOpenChange={() => setEditingEntity(null)}>
+      <Dialog open={!!editingGrossiste} onOpenChange={() => setEditingGrossiste(null)}>
         <DialogContent>
-          {editingEntity && (
+          {editingGrossiste && (
             <GrossisteForm
-              entity={editingEntity}
+              grossiste={editingGrossiste}
               onSuccess={() => {
-                setEditingEntity(null);
-                queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
+                setEditingGrossiste(null);
+                queryClient.invalidateQueries({ queryKey: ["/api/grossistes"] });
               }}
             />
           )}
@@ -268,30 +266,31 @@ export default function GrossistesPage() {
 }
 
 interface GrossisteFormProps {
-  entity?: Entity;
+  grossiste?: Grossiste;
   onSuccess: () => void;
 }
 
-function GrossisteForm({ entity, onSuccess }: GrossisteFormProps) {
+function GrossisteForm({ grossiste, onSuccess }: GrossisteFormProps) {
   const { toast } = useToast();
-  const [nom, setNom] = useState(entity?.nom || "");
-  const [email, setEmail] = useState(entity?.email || "");
-  const [telephone, setTelephone] = useState(entity?.telephone || "");
-  const [adresse, setAdresse] = useState(entity?.adresse || "");
-  const [region, setRegion] = useState(entity?.region || "");
-  const [secteur, setSecteur] = useState(entity?.secteur || "");
+  const [nom, setNom] = useState(grossiste?.nom || "");
+  const [email1, setEmail1] = useState(grossiste?.email1 || "");
+  const [tel1, setTel1] = useState(grossiste?.tel1 || "");
+  const [adresse, setAdresse] = useState(grossiste?.adresse || "");
+  const [region, setRegion] = useState(grossiste?.region || "");
+  const [gouvernerat, setGouvernerat] = useState(grossiste?.gouvernerat || "");
+  const [secteur, setSecteur] = useState(grossiste?.secteur || "");
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
-      if (entity) {
-        return apiRequest("PATCH", `/api/entities/${entity.id}`, data);
+      if (grossiste) {
+        return apiRequest("PATCH", `/api/grossistes/${grossiste.id}`, data);
       }
-      return apiRequest("POST", "/api/entities", data);
+      return apiRequest("POST", "/api/grossistes", data);
     },
     onSuccess: () => {
       toast({
-        title: entity ? "Grossiste modifié" : "Grossiste créé",
-        description: entity ? "Le grossiste a été mis à jour" : "Le grossiste a été créé"
+        title: grossiste ? "Grossiste modifié" : "Grossiste créé",
+        description: grossiste ? "Le grossiste a été mis à jour" : "Le grossiste a été créé"
       });
       onSuccess();
     },
@@ -308,11 +307,11 @@ function GrossisteForm({ entity, onSuccess }: GrossisteFormProps) {
     }
     mutation.mutate({
       nom,
-      type: "grossiste",
-      email,
-      telephone,
-      adresse,
+      email1: email1 || null,
+      tel1: tel1 || null,
+      adresse: adresse || null,
       region: region || null,
+      gouvernerat: gouvernerat || null,
       secteur: secteur || null
     });
   };
@@ -320,77 +319,51 @@ function GrossisteForm({ entity, onSuccess }: GrossisteFormProps) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{entity ? "Modifier le grossiste" : "Nouveau grossiste"}</DialogTitle>
+        <DialogTitle>{grossiste ? "Modifier le grossiste" : "Nouveau grossiste"}</DialogTitle>
         <DialogDescription>
-          {entity ? "Modifiez les informations du grossiste" : "Créez un nouveau grossiste"}
+          {grossiste ? "Modifiez les informations du grossiste" : "Créez un nouveau grossiste"}
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Nom *</label>
-          <Input
-            value={nom}
-            onChange={(e) => setNom(e.target.value)}
-            placeholder="Nom du grossiste"
-            data-testid="input-grossiste-nom"
-          />
+          <Input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom du grossiste" data-testid="input-grossiste-nom" />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Région</label>
-            <Input
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              placeholder="Ex: Casablanca-Settat"
-              data-testid="input-grossiste-region"
-            />
+            <Input value={region} onChange={(e) => setRegion(e.target.value)} data-testid="input-grossiste-region" />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Secteur</label>
-            <Input
-              value={secteur}
-              onChange={(e) => setSecteur(e.target.value)}
-              placeholder="Ex: Secteur 1"
-              data-testid="input-grossiste-secteur"
-            />
+            <label className="text-sm font-medium">Gouvernerat</label>
+            <Input value={gouvernerat} onChange={(e) => setGouvernerat(e.target.value)} data-testid="input-grossiste-gouvernerat" />
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Secteur</label>
+          <Input value={secteur} onChange={(e) => setSecteur(e.target.value)} data-testid="input-grossiste-secteur" />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Email</label>
-          <Input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="contact@grossiste.com"
-            data-testid="input-grossiste-email"
-          />
+          <Input type="email" value={email1} onChange={(e) => setEmail1(e.target.value)} data-testid="input-grossiste-email" />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Téléphone</label>
-          <Input
-            value={telephone}
-            onChange={(e) => setTelephone(e.target.value)}
-            placeholder="+33 1 23 45 67 89"
-            data-testid="input-grossiste-telephone"
-          />
+          <Input value={tel1} onChange={(e) => setTel1(e.target.value)} data-testid="input-grossiste-telephone" />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Adresse</label>
-          <Input
-            value={adresse}
-            onChange={(e) => setAdresse(e.target.value)}
-            placeholder="123 Rue Example, 75001 Paris"
-            data-testid="input-grossiste-adresse"
-          />
+          <Input value={adresse} onChange={(e) => setAdresse(e.target.value)} data-testid="input-grossiste-adresse" />
         </div>
 
         <DialogFooter>
           <Button type="submit" disabled={mutation.isPending} data-testid="button-submit-grossiste">
-            {mutation.isPending ? "Enregistrement..." : (entity ? "Modifier" : "Créer")}
+            {mutation.isPending ? "Enregistrement..." : (grossiste ? "Modifier" : "Créer")}
           </Button>
         </DialogFooter>
       </form>

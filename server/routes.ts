@@ -2,7 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import { storage } from "./storage";
-import { loginSchema, insertUserSchema, insertEntitySchema, insertProductSchema, insertOrderSchema, insertOrderLineSchema, statusTransitions, insertCommercialOfferSchema, insertCommercialActionSchema, insertCommunicationSchema, type CommercialOffer, type CommercialAction } from "@shared/schema";
+import { loginSchema, insertUserSchema, insertEntitySchema, insertPharmacieSchema, insertGrossisteSchema, insertProductSchema, insertOrderSchema, insertOrderLineSchema, statusTransitions, insertCommercialOfferSchema, insertCommercialActionSchema, insertCommunicationSchema, type CommercialOffer, type CommercialAction, type InsertPharmacie, type InsertGrossiste } from "@shared/schema";
+import * as XLSX from "xlsx";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { sendOrderStatusEmail } from "./email";
@@ -345,26 +346,31 @@ export async function registerRoutes(
           continue;
         }
 
-        const entityData: any = {
+        const baseData: any = {
           nom: nom.trim(),
-          type: entityType,
-          email: (row.email || row.Email || row.EMAIL || "").trim() || null,
-          telephone: (row.telephone || row.Telephone || row.tel || row.Tel || row.phone || row.Phone || "").trim() || null,
+          email1: (row.email || row.Email || row.EMAIL || "").trim() || null,
+          tel1: (row.telephone || row.Telephone || row.tel || row.Tel || row.phone || row.Phone || "").trim() || null,
           adresse: (row.adresse || row.Adresse || row.address || row.Address || "").trim() || null,
           region: (row.region || row.Region || row.région || row.Région || "").trim() || null,
           secteur: (row.secteur || row.Secteur || "").trim() || null,
         };
 
-        if (entityType === "pharmacie") {
-          entityData.classification = (row.classification || row.Classification || row.classe || row.Classe || "").trim() || null;
-          entityData.proprietaire = (row.proprietaire || row.Proprietaire || row.propriétaire || row.Propriétaire || "").trim() || null;
-          entityData.pharmacienResponsable = (row.pharmacienResponsable || row.pharmacien_responsable || row.pharmacien || row.Pharmacien || "").trim() || null;
-          const prep = (row.preparateurs || row.Preparateurs || row.préparateurs || row.Préparateurs || "").trim();
-          entityData.preparateurs = prep ? JSON.stringify(prep.split("|").map((p: string) => p.trim()).filter(Boolean)) : null;
-        }
-
         try {
-          await storage.createEntity(entityData);
+          if (entityType === "pharmacie") {
+            const data: InsertPharmacie = {
+              ...baseData,
+              classification: (row.classification || row.Classification || row.classe || row.Classe || "").trim() || null,
+              proprietaire: (row.proprietaire || row.Proprietaire || row.propriétaire || row.Propriétaire || "").trim() || null,
+              pharmacienResponsable: (row.pharmacienResponsable || row.pharmacien_responsable || row.pharmacien || row.Pharmacien || "").trim() || null,
+              preparateurs: (() => {
+                const prep = (row.preparateurs || row.Preparateurs || row.préparateurs || row.Préparateurs || "").trim();
+                return prep ? JSON.stringify(prep.split("|").map((p: string) => p.trim()).filter(Boolean)) : null;
+              })(),
+            } as InsertPharmacie;
+            await storage.createPharmacie(data);
+          } else {
+            await storage.createGrossiste(baseData as InsertGrossiste);
+          }
           imported++;
         } catch (err) {
           errors.push(`Ligne ${i + 2}: erreur lors de l'importation de "${nom}"`);
@@ -374,6 +380,207 @@ export async function registerRoutes(
       res.json({ imported, total: rows.length, errors: errors.length > 0 ? errors : undefined });
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Erreur lors de l'importation" });
+    }
+  });
+
+  // ============================================
+  // PHARMACIES ROUTES (separate table, fed from Excel)
+  // ============================================
+
+  app.get("/api/pharmacies/search", requireAuth, async (req, res) => {
+    const search = (req.query.q as string) || "";
+    const results = await storage.searchPharmacies(search);
+    res.json(results);
+  });
+
+  app.get("/api/pharmacies", requireAuth, async (req, res) => {
+    const list = await storage.getPharmacies();
+    res.json(list);
+  });
+
+  app.post("/api/pharmacies", requireRole("admin", "laboratoire"), async (req, res) => {
+    try {
+      const data = insertPharmacieSchema.parse(req.body);
+      const created = await storage.createPharmacie(data);
+      res.status(201).json(created);
+    } catch (error) {
+      res.status(400).json({ error: "Données invalides" });
+    }
+  });
+
+  app.patch("/api/pharmacies/:id", requireRole("admin", "laboratoire"), async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const updated = await storage.updatePharmacie(id, req.body);
+      if (!updated) return res.status(404).json({ error: "Pharmacie non trouvée" });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Données invalides" });
+    }
+  });
+
+  app.patch("/api/pharmacies/:id/block", requireRole("admin", "laboratoire"), async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const user = (req as any).user;
+      const { blocked } = req.body;
+      const updated = await storage.updatePharmacie(id, {
+        blocked,
+        blockedBy: blocked ? user.entityId : null,
+        blockedAt: blocked ? new Date() : null,
+      } as any);
+      if (!updated) return res.status(404).json({ error: "Pharmacie non trouvée" });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Erreur lors du blocage" });
+    }
+  });
+
+  // ============================================
+  // GROSSISTES ROUTES
+  // ============================================
+
+  app.get("/api/grossistes/search", requireAuth, async (req, res) => {
+    const search = (req.query.q as string) || "";
+    const results = await storage.searchGrossistes(search);
+    res.json(results);
+  });
+
+  app.get("/api/grossistes", requireAuth, async (req, res) => {
+    const list = await storage.getGrossistes();
+    res.json(list);
+  });
+
+  app.post("/api/grossistes", requireRole("admin", "laboratoire"), async (req, res) => {
+    try {
+      const data = insertGrossisteSchema.parse(req.body);
+      const created = await storage.createGrossiste(data);
+      res.status(201).json(created);
+    } catch (error) {
+      res.status(400).json({ error: "Données invalides" });
+    }
+  });
+
+  app.patch("/api/grossistes/:id", requireRole("admin", "laboratoire"), async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const updated = await storage.updateGrossiste(id, req.body);
+      if (!updated) return res.status(404).json({ error: "Grossiste non trouvé" });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Données invalides" });
+    }
+  });
+
+  app.patch("/api/grossistes/:id/block", requireRole("admin", "laboratoire"), async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const user = (req as any).user;
+      const { blocked } = req.body;
+      const updated = await storage.updateGrossiste(id, {
+        blocked,
+        blockedBy: blocked ? user.entityId : null,
+        blockedAt: blocked ? new Date() : null,
+      } as any);
+      if (!updated) return res.status(404).json({ error: "Grossiste non trouvé" });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Erreur lors du blocage" });
+    }
+  });
+
+  // Excel import (Base_Pharmacie_medecin_grossiste_Tunisie.xlsx structure)
+  // Colonne SPECIALITE filtre: PHARMACIE -> pharmacies, GROSSISTE -> grossistes
+  const excelUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      if ([".xlsx", ".xls"].includes(ext)) {
+        cb(null, true);
+      } else {
+        cb(new Error("Format non supporté. Utilisez un fichier Excel (.xlsx)"));
+      }
+    },
+  });
+
+  app.post("/api/pharmacies-grossistes/import-excel", requireRole("admin"), excelUpload.single("file"), async (req, res) => {
+    try {
+      const file = req.file;
+      if (!file) return res.status(400).json({ error: "Aucun fichier fourni" });
+
+      const wb = XLSX.read(file.buffer, { type: "buffer" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+      const pharmacieRows: InsertPharmacie[] = [];
+      const grossisteRows: InsertGrossiste[] = [];
+
+      const norm = (v: any) => {
+        if (v === null || v === undefined) return null;
+        const s = String(v).trim();
+        return s.length > 0 ? s : null;
+      };
+
+      for (const r of rows) {
+        const specialite = String(r["SPECIALITE"] || "").trim().toUpperCase();
+        const nom = norm(r["NOMP RENOM"]) || norm(r["NOMPRENOM"]);
+        if (!nom) continue;
+
+        const common = {
+          code: norm(r["CODE PROSPECT"]),
+          nom,
+          tendance: norm(r["TENDANCE"]),
+          ciblage: norm(r["CIBLAGE"]),
+          secteur: norm(r["SECTEUR"]),
+          exercice: norm(r["EXERCICE"]),
+          gsm1: norm(r["GSM1"]),
+          gsm2: norm(r["GSM2"]),
+          tel1: norm(r["TEL1"]),
+          tel2: norm(r["TEL2"]),
+          fax1: norm(r["FAX1"]),
+          fax2: norm(r["FAX2"]),
+          email1: norm(r["EMAIL1"]),
+          email2: norm(r["EMAIL2"]),
+          codeEtablissement: norm(r["CODEETABLISSEMENT"]),
+          etablissement: norm(r["ETABLISSEMENT"]),
+          service: norm(r["SERVICE"]),
+          adresse: norm(r["ADRESSE"]),
+          codeLocalite: norm(r["CODE LOCALITE"]),
+          delegation: norm(r["DELEGATION"]),
+          gouvernerat: norm(r["GOUVERNERAT"]),
+          region: norm(r["REGION"]),
+        };
+
+        if (specialite === "PHARMACIE") {
+          pharmacieRows.push(common as InsertPharmacie);
+        } else if (specialite === "GROSSISTE") {
+          grossisteRows.push(common as InsertGrossiste);
+        }
+      }
+
+      const replace = String(req.body.replace || "false") === "true";
+      let importedPharmacies = 0;
+      let importedGrossistes = 0;
+
+      if (replace) {
+        const { db } = await import("./db");
+        const schema = await import("../shared/schema");
+        await db.delete(schema.pharmacies);
+        await db.delete(schema.grossistes);
+      }
+
+      importedPharmacies = await storage.bulkInsertPharmacies(pharmacieRows);
+      importedGrossistes = await storage.bulkInsertGrossistes(grossisteRows);
+
+      res.json({
+        totalRows: rows.length,
+        importedPharmacies,
+        importedGrossistes,
+      });
+    } catch (error: any) {
+      console.error("Excel import error:", error);
+      res.status(400).json({ error: error?.message || "Erreur lors de l'importation" });
     }
   });
 
@@ -613,8 +820,15 @@ export async function registerRoutes(
       }
 
       // Check if entities are blocked
-      const pharmacie = await storage.getEntity(pharmacieId);
-      const grossiste = await storage.getEntity(grossisteId);
+      const pharmacie = await storage.getPharmacie(pharmacieId);
+      const grossiste = await storage.getGrossiste(grossisteId);
+
+      if (!pharmacie) {
+        return res.status(400).json({ error: "Pharmacie introuvable" });
+      }
+      if (!grossiste) {
+        return res.status(400).json({ error: "Grossiste introuvable" });
+      }
       
       if (pharmacie?.blocked) {
         return res.status(400).json({ error: "Cette pharmacie est bloquée" });
@@ -817,9 +1031,8 @@ export async function registerRoutes(
               message: `Une nouvelle commande a été validée et transmise`
             });
             if (gu.email) {
-              const entities = await storage.getEntities();
-              const pharmacieEntity = entities.find(e => e.id === order.pharmacieId);
-              const grossisteEntity = entities.find(e => e.id === order.grossisteId);
+              const pharmacieEntity = order.pharmacieId ? await storage.getPharmacie(order.pharmacieId) : null;
+              const grossisteEntity = order.grossisteId ? await storage.getGrossiste(order.grossisteId) : null;
               try {
                 await sendOrderStatusEmail(gu.email, `${gu.prenom} ${gu.nom}`, 'grossiste', {
                   orderId: id,
@@ -841,9 +1054,8 @@ export async function registerRoutes(
       }
 
       // Get entity names for emails
-      const allEntities = await storage.getEntities();
-      const pharmacieEntity = allEntities.find(e => e.id === order.pharmacieId);
-      const grossisteEntity = allEntities.find(e => e.id === order.grossisteId);
+      const pharmacieEntity = order.pharmacieId ? await storage.getPharmacie(order.pharmacieId) : null;
+      const grossisteEntity = order.grossisteId ? await storage.getGrossiste(order.grossisteId) : null;
       
       const emailOrderData = {
         orderId: id,
@@ -994,7 +1206,7 @@ export async function registerRoutes(
       }
 
       // Check grossiste not blocked
-      const grossiste = await storage.getEntity(grossisteId);
+      const grossiste = await storage.getGrossiste(grossisteId);
       if (!grossiste || grossiste.blocked) {
         return res.status(400).json({ error: "Ce grossiste est bloqué ou introuvable" });
       }
@@ -1072,8 +1284,10 @@ export async function registerRoutes(
 
     const allOrders = await storage.getOrders({});
     const orderMap = new Map(allOrders.map(o => [o.id, o]));
-    const allEntities = await storage.getEntities();
-    const entityMap = new Map(allEntities.map(e => [e.id, e.nom]));
+    const allPharmacies = await storage.getPharmacies();
+    const pharmacieMap = new Map(allPharmacies.map(p => [p.id, p.nom]));
+    const allGrossistes = await storage.getGrossistes();
+    const grossisteMap = new Map(allGrossistes.map(g => [g.id, g.nom]));
     const allUsers = await storage.getUsers();
     const userMap = new Map(allUsers.map(u => [u.id, u]));
 
@@ -1082,8 +1296,8 @@ export async function registerRoutes(
       const delegue = order ? userMap.get(order.delegueId) : undefined;
       return {
         ...h,
-        pharmacieNom: order ? entityMap.get(order.pharmacieId) || null : null,
-        grossisteNom: order ? entityMap.get(order.grossisteId) || null : null,
+        pharmacieNom: order ? pharmacieMap.get(order.pharmacieId) || null : null,
+        grossisteNom: order ? grossisteMap.get(order.grossisteId) || null : null,
         delegueNom: delegue ? `${delegue.prenom} ${delegue.nom}` : null,
       };
     });

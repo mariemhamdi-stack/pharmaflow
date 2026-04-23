@@ -33,6 +33,12 @@ export default function UsersPage() {
   const { data: entities } = useQuery<Entity[]>({
     queryKey: ["/api/entities"]
   });
+  const { data: pharmaciesList } = useQuery<any[]>({
+    queryKey: ["/api/pharmacies"]
+  });
+  const { data: grossistesList } = useQuery<any[]>({
+    queryKey: ["/api/grossistes"]
+  });
 
   const filteredUsers = users?.filter(user => {
     if (isLabView) {
@@ -62,7 +68,12 @@ export default function UsersPage() {
 
   const getEntityName = (entityId: string | null) => {
     if (!entityId) return "-";
-    return entities?.find(e => e.id === entityId)?.nom || "-";
+    return (
+      entities?.find(e => e.id === entityId)?.nom ||
+      pharmaciesList?.find(p => p.id === entityId)?.nom ||
+      grossistesList?.find(g => g.id === entityId)?.nom ||
+      "-"
+    );
   };
 
   return (
@@ -86,6 +97,8 @@ export default function UsersPage() {
           <DialogContent>
             <UserForm 
               entities={entities || []}
+              pharmaciesList={pharmaciesList}
+              grossistesList={grossistesList}
               isLabView={isLabView}
               onSuccess={() => {
                 setIsCreateOpen(false);
@@ -209,6 +222,8 @@ export default function UsersPage() {
             <UserForm 
               user={editingUser}
               entities={entities || []}
+              pharmaciesList={pharmaciesList}
+              grossistesList={grossistesList}
               isLabView={isLabView}
               onSuccess={() => {
                 setEditingUser(null);
@@ -225,11 +240,13 @@ export default function UsersPage() {
 interface UserFormProps {
   user?: User;
   entities: Entity[];
+  pharmaciesList?: Array<{ id: string; nom: string }>;
+  grossistesList?: Array<{ id: string; nom: string }>;
   isLabView?: boolean;
   onSuccess: () => void;
 }
 
-function UserForm({ user, entities, isLabView, onSuccess }: UserFormProps) {
+function UserForm({ user, entities, pharmaciesList, grossistesList, isLabView, onSuccess }: UserFormProps) {
   const { toast } = useToast();
   const [nom, setNom] = useState(user?.nom || "");
   const [prenom, setPrenom] = useState(user?.prenom || "");
@@ -302,15 +319,15 @@ function UserForm({ user, entities, isLabView, onSuccess }: UserFormProps) {
     );
   };
 
-  const getEntitiesForRole = () => {
+  const getEntitiesForRole = (): Array<{ id: string; nom: string }> => {
     if (role === "laboratoire" || role === "delegue") {
       return entities.filter(e => e.type === "laboratoire");
     }
     if (role === "grossiste") {
-      return entities.filter(e => e.type === "grossiste");
+      return (grossistesList || []) as Array<{ id: string; nom: string }>;
     }
     if (role === "pharmacie") {
-      return entities.filter(e => e.type === "pharmacie");
+      return (pharmaciesList || []) as Array<{ id: string; nom: string }>;
     }
     return [];
   };

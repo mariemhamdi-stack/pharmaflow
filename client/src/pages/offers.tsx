@@ -100,7 +100,7 @@ function MultiPharmacySelector({
   const doSearch = useCallback(async (q: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/entities/search?type=pharmacie&q=${encodeURIComponent(q)}`, {
+      const res = await fetch(`/api/pharmacies/search?q=${encodeURIComponent(q)}`, {
         credentials: "include",
       });
       const data = await res.json();

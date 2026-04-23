@@ -62,16 +62,13 @@ export default function OrdersPage() {
     queryKey: ["/api/orders"]
   });
 
-  const { data: allGrossistesList } = useQuery<Entity[]>({
-    queryKey: ["/api/entities"],
-    select: (data: Entity[]) => data.filter(e => e.type === "grossiste"),
+  const { data: allGrossistesList } = useQuery<any[]>({
+    queryKey: ["/api/grossistes"],
   });
-
   const allGrossistes = allGrossistesList || [];
 
-  const { data: allPharmaciesList } = useQuery<Entity[]>({
-    queryKey: ["/api/entities"],
-    select: (data: Entity[]) => data.filter(e => e.type === "pharmacie"),
+  const { data: allPharmaciesList } = useQuery<any[]>({
+    queryKey: ["/api/pharmacies"],
   });
   const allPharmacies = allPharmaciesList || [];
 
@@ -429,7 +426,7 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
               value={pharmacieId}
               displayValue={pharmacieNom}
               onSelect={(id, label) => { setPharmacieId(id); setPharmacieNom(label); }}
-              searchUrl="/api/entities/search?type=pharmacie&q="
+              searchUrl="/api/pharmacies/search?q="
               placeholder="Rechercher une pharmacie..."
               testId="search-pharmacie"
             />
@@ -440,7 +437,7 @@ function CreateOrderForm({ onSuccess }: CreateOrderFormProps) {
               value={grossisteId}
               displayValue={grossisteNom}
               onSelect={(id, label) => { setGrossisteId(id); setGrossisteNom(label); }}
-              searchUrl="/api/entities/search?type=grossiste&q="
+              searchUrl="/api/grossistes/search?q="
               placeholder="Rechercher un grossiste..."
               testId="search-grossiste"
             />

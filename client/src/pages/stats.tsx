@@ -54,11 +54,9 @@ export default function StatsPage() {
     queryKey: [statsUrl],
   });
 
-  const { data: entities } = useQuery<Entity[]>({
-    queryKey: ["/api/entities"],
+  const { data: grossistes = [] } = useQuery<Array<{ id: string; nom: string }>>({
+    queryKey: ["/api/grossistes"],
   });
-
-  const grossistes = entities?.filter(e => e.type === "grossiste") || [];
 
   const filteredByStatus = statusFilter === "all"
     ? stats?.ordersByStatus

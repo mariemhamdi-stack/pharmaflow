@@ -28,7 +28,7 @@ export const actionScopeEnum = pgEnum("action_scope", ["globale", "ciblee"]);
 export const communicationTypeEnum = pgEnum("communication_type", ["banniere", "popup", "actualite"]);
 export const communicationCategoryEnum = pgEnum("communication_category", ["informative", "promotionnelle", "institutionnelle"]);
 
-// Entities table (laboratoire, grossiste, pharmacie)
+// Entities table (now only laboratoires - pharmacies/grossistes have their own tables)
 export const entities = pgTable("entities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   nom: text("nom").notNull(),
@@ -43,7 +43,73 @@ export const entities = pgTable("entities", {
   pharmacienResponsable: text("pharmacien_responsable"),
   preparateurs: text("preparateurs"),
   blocked: boolean("blocked").default(false),
-  blockedBy: varchar("blocked_by").references(() => entities.id),
+  blockedBy: varchar("blocked_by"),
+  blockedAt: timestamp("blocked_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+// Pharmacies table (separate, fed from Excel import - SPECIALITE = "PHARMACIE")
+export const pharmacies = pgTable("pharmacies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code"),
+  nom: text("nom").notNull(),
+  tendance: text("tendance"),
+  ciblage: text("ciblage"),
+  secteur: text("secteur"),
+  exercice: text("exercice"),
+  gsm1: text("gsm1"),
+  gsm2: text("gsm2"),
+  tel1: text("tel1"),
+  tel2: text("tel2"),
+  fax1: text("fax1"),
+  fax2: text("fax2"),
+  email1: text("email1"),
+  email2: text("email2"),
+  codeEtablissement: text("code_etablissement"),
+  etablissement: text("etablissement"),
+  service: text("service"),
+  adresse: text("adresse"),
+  codeLocalite: text("code_localite"),
+  delegation: text("delegation"),
+  gouvernerat: text("gouvernerat"),
+  region: text("region"),
+  classification: text("classification"),
+  proprietaire: text("proprietaire"),
+  pharmacienResponsable: text("pharmacien_responsable"),
+  preparateurs: text("preparateurs"),
+  blocked: boolean("blocked").default(false),
+  blockedBy: varchar("blocked_by"),
+  blockedAt: timestamp("blocked_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+// Grossistes table (separate, fed from Excel import - SPECIALITE = "GROSSISTE")
+export const grossistes = pgTable("grossistes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code"),
+  nom: text("nom").notNull(),
+  tendance: text("tendance"),
+  ciblage: text("ciblage"),
+  secteur: text("secteur"),
+  exercice: text("exercice"),
+  gsm1: text("gsm1"),
+  gsm2: text("gsm2"),
+  tel1: text("tel1"),
+  tel2: text("tel2"),
+  fax1: text("fax1"),
+  fax2: text("fax2"),
+  email1: text("email1"),
+  email2: text("email2"),
+  codeEtablissement: text("code_etablissement"),
+  etablissement: text("etablissement"),
+  service: text("service"),
+  adresse: text("adresse"),
+  codeLocalite: text("code_localite"),
+  delegation: text("delegation"),
+  gouvernerat: text("gouvernerat"),
+  region: text("region"),
+  blocked: boolean("blocked").default(false),
+  blockedBy: varchar("blocked_by"),
   blockedAt: timestamp("blocked_at"),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
@@ -57,7 +123,7 @@ export const users = pgTable("users", {
   telephone: text("telephone"),
   password: text("password").notNull(),
   role: userRoleEnum("role").notNull().default("delegue"),
-  entityId: varchar("entity_id").references(() => entities.id),
+  entityId: varchar("entity_id"),
   status: userStatusEnum("status").notNull().default("actif"),
   blocked: boolean("blocked").default(false),
   blockedBy: varchar("blocked_by"),
@@ -93,8 +159,8 @@ export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   laboratoireId: varchar("laboratoire_id").references(() => entities.id).notNull(),
   delegueId: varchar("delegue_id").references(() => users.id).notNull(),
-  pharmacieId: varchar("pharmacie_id").references(() => entities.id).notNull(),
-  grossisteId: varchar("grossiste_id").references(() => entities.id).notNull(),
+  pharmacieId: varchar("pharmacie_id").notNull(),
+  grossisteId: varchar("grossiste_id").notNull(),
   status: orderStatusEnum("status").notNull().default("brouillon"),
   commentaire: text("commentaire"),
   motifRefus: text("motif_refus"),
@@ -155,7 +221,7 @@ export const commercialOffers = pgTable("commercial_offers", {
   type: offerTypeEnum("type").notNull(),
   laboratoireId: varchar("laboratoire_id").references(() => entities.id).notNull(),
   delegueId: varchar("delegue_id").references(() => users.id),
-  pharmacieId: varchar("pharmacie_id").references(() => entities.id),
+  pharmacieId: varchar("pharmacie_id"),
   pharmacieIds: text("pharmacie_ids"),
   orderId: varchar("order_id").references(() => orders.id),
   titre: text("titre").notNull(),
@@ -216,6 +282,8 @@ export const communications = pgTable("communications", {
 
 // Insert schemas
 export const insertEntitySchema = createInsertSchema(entities).omit({ id: true, createdAt: true });
+export const insertPharmacieSchema = createInsertSchema(pharmacies).omit({ id: true, createdAt: true });
+export const insertGrossisteSchema = createInsertSchema(grossistes).omit({ id: true, createdAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, lastLogin: true });
 export const insertDelegueLaboratoireSchema = createInsertSchema(delegueLaboratoires).omit({ id: true, createdAt: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
@@ -230,6 +298,12 @@ export const insertCommunicationSchema = createInsertSchema(communications).omit
 // Types
 export type Entity = typeof entities.$inferSelect;
 export type InsertEntity = z.infer<typeof insertEntitySchema>;
+
+export type Pharmacie = typeof pharmacies.$inferSelect;
+export type InsertPharmacie = z.infer<typeof insertPharmacieSchema>;
+
+export type Grossiste = typeof grossistes.$inferSelect;
+export type InsertGrossiste = z.infer<typeof insertGrossisteSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -273,8 +347,8 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type OrderWithRelations = Order & {
   laboratoire?: Entity;
   delegue?: User;
-  pharmacie?: Entity;
-  grossiste?: Entity;
+  pharmacie?: Pharmacie;
+  grossiste?: Grossiste;
   lines?: (OrderLine & { product?: Product })[];
   offers?: CommercialOffer[];
 };

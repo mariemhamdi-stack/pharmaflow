@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Entity } from "@shared/schema";
+import type { Pharmacie } from "@shared/schema";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,35 +20,35 @@ export default function PharmaciesPage() {
   const [filterSecteur, setFilterSecteur] = useState("all");
   const [filterClasse, setFilterClasse] = useState("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingEntity, setEditingEntity] = useState<Entity | null>(null);
+  const [editingPharmacie, setEditingPharmacie] = useState<Pharmacie | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: entities, isLoading } = useQuery<Entity[]>({
-    queryKey: ["/api/entities"]
+  const { data: pharmacies, isLoading } = useQuery<Pharmacie[]>({
+    queryKey: ["/api/pharmacies"]
   });
-
-  const pharmacies = entities?.filter(e => e.type === "pharmacie");
 
   const regions = Array.from(new Set(pharmacies?.map(e => e.region).filter(Boolean) as string[])).sort();
   const secteurs = Array.from(new Set(pharmacies?.map(e => e.secteur).filter(Boolean) as string[])).sort();
   const classes = Array.from(new Set(pharmacies?.map(e => e.classification).filter(Boolean) as string[])).sort();
 
-  const filteredPharmacies = pharmacies?.filter(entity => {
+  const filteredPharmacies = pharmacies?.filter(p => {
     const searchLower = search.toLowerCase();
     const matchesSearch = !search || (
-      entity.nom.toLowerCase().includes(searchLower) ||
-      entity.email?.toLowerCase().includes(searchLower) ||
-      entity.adresse?.toLowerCase().includes(searchLower) ||
-      entity.proprietaire?.toLowerCase().includes(searchLower) ||
-      entity.pharmacienResponsable?.toLowerCase().includes(searchLower) ||
-      entity.classification?.toLowerCase().includes(searchLower) ||
-      entity.region?.toLowerCase().includes(searchLower) ||
-      entity.secteur?.toLowerCase().includes(searchLower)
+      p.nom.toLowerCase().includes(searchLower) ||
+      p.email1?.toLowerCase().includes(searchLower) ||
+      p.adresse?.toLowerCase().includes(searchLower) ||
+      p.proprietaire?.toLowerCase().includes(searchLower) ||
+      p.pharmacienResponsable?.toLowerCase().includes(searchLower) ||
+      p.classification?.toLowerCase().includes(searchLower) ||
+      p.region?.toLowerCase().includes(searchLower) ||
+      p.secteur?.toLowerCase().includes(searchLower) ||
+      p.gouvernerat?.toLowerCase().includes(searchLower)
     );
-    const matchesRegion = filterRegion === "all" || entity.region === filterRegion;
-    const matchesSecteur = filterSecteur === "all" || entity.secteur === filterSecteur;
-    const matchesClasse = filterClasse === "all" || entity.classification === filterClasse;
+    const matchesRegion = filterRegion === "all" || p.region === filterRegion;
+    const matchesSecteur = filterSecteur === "all" || p.secteur === filterSecteur;
+    const matchesClasse = filterClasse === "all" || p.classification === filterClasse;
     return matchesSearch && matchesRegion && matchesSecteur && matchesClasse;
   });
 
@@ -73,7 +73,37 @@ export default function PharmaciesPage() {
         title: "Importation réussie",
         description: `${data.imported} pharmacie(s) importée(s) avec succès`
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pharmacies"] });
+      setIsUploadOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erreur d'importation", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const excelImportMutation = useMutation({
+    mutationFn: async ({ file, replace }: { file: File; replace: boolean }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("replace", String(replace));
+      const res = await fetch("/api/pharmacies-grossistes/import-excel", {
+        method: "POST",
+        body: formData,
+        credentials: "include"
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erreur lors de l'importation Excel");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Importation Excel réussie",
+        description: `${data.importedPharmacies} pharmacie(s) et ${data.importedGrossistes} grossiste(s) importés sur ${data.totalRows} lignes`
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/pharmacies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/grossistes"] });
       setIsUploadOpen(false);
     },
     onError: (error: Error) => {
@@ -83,8 +113,14 @@ export default function PharmaciesPage() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (file) uploadMutation.mutate(file);
+  };
+
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
-      uploadMutation.mutate(file);
+      const replace = window.confirm("Remplacer toutes les pharmacies et grossistes existants ? (Annuler = ajouter)");
+      excelImportMutation.mutate({ file, replace });
     }
   };
 
@@ -105,17 +141,40 @@ export default function PharmaciesPage() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Importer des pharmacies</DialogTitle>
+                <DialogTitle>Importer des pharmacies / grossistes</DialogTitle>
                 <DialogDescription>
-                  Uploadez un fichier CSV contenant la liste des pharmacies à importer.
-                  Le fichier doit contenir les colonnes : nom, email, telephone, adresse, region, secteur, classification, proprietaire, pharmacienResponsable
+                  Deux formats acceptés : Excel (.xlsx) avec la colonne SPECIALITE (PHARMACIE/GROSSISTE) ou CSV simple pour pharmacies uniquement.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-4">
-                <div className="border-2 border-dashed rounded-md p-8 text-center">
-                  <FileSpreadsheet className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Format accepté : .csv (séparateur virgule, point-virgule ou tabulation)
+                <div className="border-2 border-dashed rounded-md p-6 text-center">
+                  <FileSpreadsheet className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="font-medium mb-1">Fichier Excel (.xlsx)</p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Importe pharmacies + grossistes selon la colonne SPECIALITE
+                  </p>
+                  <input
+                    ref={excelInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleExcelUpload}
+                    className="hidden"
+                    data-testid="input-upload-excel"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => excelInputRef.current?.click()}
+                    disabled={excelImportMutation.isPending}
+                    data-testid="button-select-excel"
+                  >
+                    {excelImportMutation.isPending ? "Importation Excel..." : "Sélectionner un fichier Excel"}
+                  </Button>
+                </div>
+                <div className="border-2 border-dashed rounded-md p-6 text-center">
+                  <FileSpreadsheet className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="font-medium mb-1">Fichier CSV (pharmacies)</p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Colonnes : nom, email, telephone, adresse, region, secteur, classification, proprietaire, pharmacienResponsable
                   </p>
                   <input
                     ref={fileInputRef}
@@ -131,7 +190,7 @@ export default function PharmaciesPage() {
                     disabled={uploadMutation.isPending}
                     data-testid="button-select-file-pharmacies"
                   >
-                    {uploadMutation.isPending ? "Importation en cours..." : "Sélectionner un fichier"}
+                    {uploadMutation.isPending ? "Importation CSV..." : "Sélectionner un fichier CSV"}
                   </Button>
                 </div>
               </div>
@@ -148,7 +207,7 @@ export default function PharmaciesPage() {
               <PharmacyForm
                 onSuccess={() => {
                   setIsCreateOpen(false);
-                  queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/pharmacies"] });
                 }}
               />
             </DialogContent>
@@ -224,62 +283,52 @@ export default function PharmaciesPage() {
                   <TableRow>
                     <TableHead>Nom</TableHead>
                     <TableHead>Région</TableHead>
+                    <TableHead>Gouvernerat</TableHead>
                     <TableHead>Secteur</TableHead>
                     <TableHead>Classe</TableHead>
                     <TableHead>Propriétaire</TableHead>
                     <TableHead>Pharmacien responsable</TableHead>
-                    <TableHead>Préparateurs</TableHead>
                     <TableHead>Téléphone</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPharmacies?.map((entity) => {
-                    const preparateurs = parsePreparateurs(entity.preparateurs);
+                  {filteredPharmacies?.map((p) => {
+                    const tel = p.tel1 || p.gsm1 || "-";
                     return (
-                      <TableRow key={entity.id} className="hover-elevate" data-testid={`row-pharmacy-${entity.id}`}>
+                      <TableRow key={p.id} className="hover-elevate" data-testid={`row-pharmacy-${p.id}`}>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded flex items-center justify-center bg-chart-4/20 text-chart-4">
                               <Store className="w-4 h-4" />
                             </div>
                             <div>
-                              <span className="font-medium">{entity.nom}</span>
-                              {entity.email && (
-                                <p className="text-xs text-muted-foreground">{entity.email}</p>
+                              <span className="font-medium">{p.nom}</span>
+                              {p.email1 && (
+                                <p className="text-xs text-muted-foreground">{p.email1}</p>
                               )}
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell data-testid={`text-region-${entity.id}`}>{entity.region || "-"}</TableCell>
-                        <TableCell data-testid={`text-secteur-${entity.id}`}>{entity.secteur || "-"}</TableCell>
-                        <TableCell data-testid={`text-classification-${entity.id}`}>
-                          {entity.classification ? (
+                        <TableCell data-testid={`text-region-${p.id}`}>{p.region || "-"}</TableCell>
+                        <TableCell>{p.gouvernerat || "-"}</TableCell>
+                        <TableCell data-testid={`text-secteur-${p.id}`}>{p.secteur || "-"}</TableCell>
+                        <TableCell data-testid={`text-classification-${p.id}`}>
+                          {p.classification ? (
                             <Badge variant="outline" className="bg-primary/10 text-primary border-transparent">
-                              {entity.classification}
+                              {p.classification}
                             </Badge>
                           ) : "-"}
                         </TableCell>
-                        <TableCell data-testid={`text-proprietaire-${entity.id}`}>{entity.proprietaire || "-"}</TableCell>
-                        <TableCell data-testid={`text-pharmacien-${entity.id}`}>{entity.pharmacienResponsable || "-"}</TableCell>
-                        <TableCell data-testid={`text-preparateurs-${entity.id}`}>
-                          {preparateurs.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {preparateurs.map((p, i) => (
-                                <Badge key={i} variant="outline" className="bg-muted text-muted-foreground border-transparent text-xs">
-                                  {p}
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : "-"}
-                        </TableCell>
-                        <TableCell>{entity.telephone || "-"}</TableCell>
+                        <TableCell data-testid={`text-proprietaire-${p.id}`}>{p.proprietaire || "-"}</TableCell>
+                        <TableCell data-testid={`text-pharmacien-${p.id}`}>{p.pharmacienResponsable || "-"}</TableCell>
+                        <TableCell>{tel}</TableCell>
                         <TableCell className="text-right">
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => setEditingEntity(entity)}
-                            data-testid={`button-edit-pharmacy-${entity.id}`}
+                            onClick={() => setEditingPharmacie(p)}
+                            data-testid={`button-edit-pharmacy-${p.id}`}
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
@@ -294,14 +343,14 @@ export default function PharmaciesPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!editingEntity} onOpenChange={() => setEditingEntity(null)}>
+      <Dialog open={!!editingPharmacie} onOpenChange={() => setEditingPharmacie(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          {editingEntity && (
+          {editingPharmacie && (
             <PharmacyForm
-              entity={editingEntity}
+              pharmacie={editingPharmacie}
               onSuccess={() => {
-                setEditingEntity(null);
-                queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
+                setEditingPharmacie(null);
+                queryClient.invalidateQueries({ queryKey: ["/api/pharmacies"] });
               }}
             />
           )}
@@ -321,37 +370,38 @@ function parsePreparateurs(val: string | null | undefined): string[] {
 }
 
 interface PharmacyFormProps {
-  entity?: Entity;
+  pharmacie?: Pharmacie;
   onSuccess: () => void;
 }
 
-function PharmacyForm({ entity, onSuccess }: PharmacyFormProps) {
+function PharmacyForm({ pharmacie, onSuccess }: PharmacyFormProps) {
   const { toast } = useToast();
-  const [nom, setNom] = useState(entity?.nom || "");
-  const [email, setEmail] = useState(entity?.email || "");
-  const [telephone, setTelephone] = useState(entity?.telephone || "");
-  const [adresse, setAdresse] = useState(entity?.adresse || "");
-  const [region, setRegion] = useState(entity?.region || "");
-  const [secteur, setSecteur] = useState(entity?.secteur || "");
-  const [classification, setClassification] = useState(entity?.classification || "");
-  const [proprietaire, setProprietaire] = useState(entity?.proprietaire || "");
-  const [pharmacienResponsable, setPharmacienResponsable] = useState(entity?.pharmacienResponsable || "");
+  const [nom, setNom] = useState(pharmacie?.nom || "");
+  const [email1, setEmail1] = useState(pharmacie?.email1 || "");
+  const [tel1, setTel1] = useState(pharmacie?.tel1 || "");
+  const [adresse, setAdresse] = useState(pharmacie?.adresse || "");
+  const [region, setRegion] = useState(pharmacie?.region || "");
+  const [gouvernerat, setGouvernerat] = useState(pharmacie?.gouvernerat || "");
+  const [secteur, setSecteur] = useState(pharmacie?.secteur || "");
+  const [classification, setClassification] = useState(pharmacie?.classification || "");
+  const [proprietaire, setProprietaire] = useState(pharmacie?.proprietaire || "");
+  const [pharmacienResponsable, setPharmacienResponsable] = useState(pharmacie?.pharmacienResponsable || "");
   const [preparateurs, setPreparateurs] = useState<string[]>(
-    parsePreparateurs(entity?.preparateurs)
+    parsePreparateurs(pharmacie?.preparateurs)
   );
   const [newPreparateur, setNewPreparateur] = useState("");
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
-      if (entity) {
-        return apiRequest("PATCH", `/api/entities/${entity.id}`, data);
+      if (pharmacie) {
+        return apiRequest("PATCH", `/api/pharmacies/${pharmacie.id}`, data);
       }
-      return apiRequest("POST", "/api/entities", data);
+      return apiRequest("POST", "/api/pharmacies", data);
     },
     onSuccess: () => {
       toast({
-        title: entity ? "Pharmacie modifiée" : "Pharmacie créée",
-        description: entity ? "La pharmacie a été mise à jour" : "La pharmacie a été créée"
+        title: pharmacie ? "Pharmacie modifiée" : "Pharmacie créée",
+        description: pharmacie ? "La pharmacie a été mise à jour" : "La pharmacie a été créée"
       });
       onSuccess();
     },
@@ -380,11 +430,11 @@ function PharmacyForm({ entity, onSuccess }: PharmacyFormProps) {
     }
     mutation.mutate({
       nom,
-      type: "pharmacie",
-      email,
-      telephone,
-      adresse,
+      email1: email1 || null,
+      tel1: tel1 || null,
+      adresse: adresse || null,
       region: region || null,
+      gouvernerat: gouvernerat || null,
       secteur: secteur || null,
       classification: classification || null,
       proprietaire: proprietaire || null,
@@ -396,71 +446,47 @@ function PharmacyForm({ entity, onSuccess }: PharmacyFormProps) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{entity ? "Modifier la pharmacie" : "Nouvelle pharmacie"}</DialogTitle>
+        <DialogTitle>{pharmacie ? "Modifier la pharmacie" : "Nouvelle pharmacie"}</DialogTitle>
         <DialogDescription>
-          {entity ? "Modifiez les informations de la pharmacie" : "Créez une nouvelle pharmacie"}
+          {pharmacie ? "Modifiez les informations de la pharmacie" : "Créez une nouvelle pharmacie"}
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Nom *</label>
-          <Input
-            value={nom}
-            onChange={(e) => setNom(e.target.value)}
-            placeholder="Nom de la pharmacie"
-            data-testid="input-pharmacy-nom"
-          />
+          <Input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom de la pharmacie" data-testid="input-pharmacy-nom" />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Région</label>
-            <Input
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              placeholder="Ex: Casablanca-Settat"
-              data-testid="input-pharmacy-region"
-            />
+            <Input value={region} onChange={(e) => setRegion(e.target.value)} data-testid="input-pharmacy-region" />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Secteur</label>
-            <Input
-              value={secteur}
-              onChange={(e) => setSecteur(e.target.value)}
-              placeholder="Ex: Secteur 1"
-              data-testid="input-pharmacy-secteur"
-            />
+            <label className="text-sm font-medium">Gouvernerat</label>
+            <Input value={gouvernerat} onChange={(e) => setGouvernerat(e.target.value)} data-testid="input-pharmacy-gouvernerat" />
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Classe</label>
-          <Input
-            value={classification}
-            onChange={(e) => setClassification(e.target.value)}
-            placeholder="Ex: Catégorie A, B, C..."
-            data-testid="input-pharmacy-classification"
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Secteur</label>
+            <Input value={secteur} onChange={(e) => setSecteur(e.target.value)} data-testid="input-pharmacy-secteur" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Classe</label>
+            <Input value={classification} onChange={(e) => setClassification(e.target.value)} data-testid="input-pharmacy-classification" />
+          </div>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Propriétaire</label>
-          <Input
-            value={proprietaire}
-            onChange={(e) => setProprietaire(e.target.value)}
-            placeholder="Nom du propriétaire"
-            data-testid="input-pharmacy-proprietaire"
-          />
+          <Input value={proprietaire} onChange={(e) => setProprietaire(e.target.value)} data-testid="input-pharmacy-proprietaire" />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Pharmacien responsable</label>
-          <Input
-            value={pharmacienResponsable}
-            onChange={(e) => setPharmacienResponsable(e.target.value)}
-            placeholder="Nom du pharmacien responsable"
-            data-testid="input-pharmacy-pharmacien"
-          />
+          <Input value={pharmacienResponsable} onChange={(e) => setPharmacienResponsable(e.target.value)} data-testid="input-pharmacy-pharmacien" />
         </div>
 
         <div className="space-y-2">
@@ -487,12 +513,7 @@ function PharmacyForm({ entity, onSuccess }: PharmacyFormProps) {
               {preparateurs.map((p, i) => (
                 <Badge key={i} variant="outline" className="bg-muted text-muted-foreground border-transparent gap-1">
                   {p}
-                  <button
-                    type="button"
-                    onClick={() => removePreparateur(i)}
-                    className="ml-1 hover:text-destructive"
-                    data-testid={`button-remove-preparateur-${i}`}
-                  >
+                  <button type="button" onClick={() => removePreparateur(i)} className="ml-1 hover:text-destructive" data-testid={`button-remove-preparateur-${i}`}>
                     <X className="w-3 h-3" />
                   </button>
                 </Badge>
@@ -503,38 +524,22 @@ function PharmacyForm({ entity, onSuccess }: PharmacyFormProps) {
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Email</label>
-          <Input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="contact@pharmacie.com"
-            data-testid="input-pharmacy-email"
-          />
+          <Input type="email" value={email1} onChange={(e) => setEmail1(e.target.value)} data-testid="input-pharmacy-email" />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Téléphone</label>
-          <Input
-            value={telephone}
-            onChange={(e) => setTelephone(e.target.value)}
-            placeholder="+33 1 23 45 67 89"
-            data-testid="input-pharmacy-telephone"
-          />
+          <Input value={tel1} onChange={(e) => setTel1(e.target.value)} data-testid="input-pharmacy-telephone" />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Adresse</label>
-          <Input
-            value={adresse}
-            onChange={(e) => setAdresse(e.target.value)}
-            placeholder="123 Rue Example, 75001 Paris"
-            data-testid="input-pharmacy-adresse"
-          />
+          <Input value={adresse} onChange={(e) => setAdresse(e.target.value)} data-testid="input-pharmacy-adresse" />
         </div>
 
         <DialogFooter>
           <Button type="submit" disabled={mutation.isPending} data-testid="button-submit-pharmacy">
-            {mutation.isPending ? "Enregistrement..." : (entity ? "Modifier" : "Créer")}
+            {mutation.isPending ? "Enregistrement..." : (pharmacie ? "Modifier" : "Créer")}
           </Button>
         </DialogFooter>
       </form>

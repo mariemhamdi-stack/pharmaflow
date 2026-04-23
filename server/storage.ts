@@ -1,8 +1,10 @@
 import { 
-  users, entities, products, orders, orderLines, orderHistory, notifications,
+  users, entities, pharmacies, grossistes, products, orders, orderLines, orderHistory, notifications,
   commercialOffers, commercialActions, communications, delegueLaboratoires,
   type User, type InsertUser,
   type Entity, type InsertEntity,
+  type Pharmacie, type InsertPharmacie,
+  type Grossiste, type InsertGrossiste,
   type Product, type InsertProduct,
   type Order, type InsertOrder,
   type OrderLine, type InsertOrderLine,
@@ -19,6 +21,48 @@ import { eq, and, desc, sql, gte, lte, or, ilike, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import bcrypt from "bcrypt";
 
+// Helpers to expose pharmacies/grossistes via legacy "Entity" shape (for /api/entities/search compatibility)
+function pharmacieToEntity(p: Pharmacie): Entity {
+  return {
+    id: p.id,
+    nom: p.nom,
+    type: "pharmacie",
+    adresse: p.adresse ?? null,
+    telephone: p.tel1 ?? p.gsm1 ?? null,
+    email: p.email1 ?? null,
+    region: p.region ?? null,
+    secteur: p.secteur ?? null,
+    classification: p.classification ?? null,
+    proprietaire: p.proprietaire ?? null,
+    pharmacienResponsable: p.pharmacienResponsable ?? null,
+    preparateurs: p.preparateurs ?? null,
+    blocked: p.blocked ?? false,
+    blockedBy: p.blockedBy ?? null,
+    blockedAt: p.blockedAt ?? null,
+    createdAt: p.createdAt,
+  } as Entity;
+}
+function grossisteToEntity(g: Grossiste): Entity {
+  return {
+    id: g.id,
+    nom: g.nom,
+    type: "grossiste",
+    adresse: g.adresse ?? null,
+    telephone: g.tel1 ?? g.gsm1 ?? null,
+    email: g.email1 ?? null,
+    region: g.region ?? null,
+    secteur: g.secteur ?? null,
+    classification: null,
+    proprietaire: null,
+    pharmacienResponsable: null,
+    preparateurs: null,
+    blocked: g.blocked ?? false,
+    blockedBy: g.blockedBy ?? null,
+    blockedAt: g.blockedAt ?? null,
+    createdAt: g.createdAt,
+  } as Entity;
+}
+
 export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
@@ -27,13 +71,29 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
   
-  // Entities
+  // Entities (laboratoires only)
   getEntity(id: string): Promise<Entity | undefined>;
   getEntities(): Promise<Entity[]>;
   getEntitiesByType(type: string): Promise<Entity[]>;
   searchEntities(search: string, type?: string, limit?: number): Promise<Entity[]>;
   createEntity(entity: InsertEntity): Promise<Entity>;
   updateEntity(id: string, entity: Partial<InsertEntity>): Promise<Entity | undefined>;
+
+  // Pharmacies
+  getPharmacie(id: string): Promise<Pharmacie | undefined>;
+  getPharmacies(): Promise<Pharmacie[]>;
+  searchPharmacies(search: string, limit?: number): Promise<Pharmacie[]>;
+  createPharmacie(p: InsertPharmacie): Promise<Pharmacie>;
+  updatePharmacie(id: string, p: Partial<InsertPharmacie>): Promise<Pharmacie | undefined>;
+  bulkInsertPharmacies(rows: InsertPharmacie[]): Promise<number>;
+
+  // Grossistes
+  getGrossiste(id: string): Promise<Grossiste | undefined>;
+  getGrossistes(): Promise<Grossiste[]>;
+  searchGrossistes(search: string, limit?: number): Promise<Grossiste[]>;
+  createGrossiste(g: InsertGrossiste): Promise<Grossiste>;
+  updateGrossiste(id: string, g: Partial<InsertGrossiste>): Promise<Grossiste | undefined>;
+  bulkInsertGrossistes(rows: InsertGrossiste[]): Promise<number>;
   
   // Products
   getProduct(id: string): Promise<Product | undefined>;
@@ -154,6 +214,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchEntities(search: string, type?: string, limit: number = 30): Promise<Entity[]> {
+    // Routing: pharmacie/grossiste types now go to dedicated tables
+    if (type === "pharmacie") {
+      const list = await this.searchPharmacies(search, limit);
+      return list.map(p => pharmacieToEntity(p)) as any;
+    }
+    if (type === "grossiste") {
+      const list = await this.searchGrossistes(search, limit);
+      return list.map(g => grossisteToEntity(g)) as any;
+    }
     const conditions = [eq(entities.blocked, false)];
     if (search.length >= 2) {
       conditions.push(ilike(entities.nom, `%${search}%`));
@@ -172,6 +241,76 @@ export class DatabaseStorage implements IStorage {
   async updateEntity(id: string, entity: Partial<InsertEntity>): Promise<Entity | undefined> {
     const [updated] = await db.update(entities).set(entity).where(eq(entities.id, id)).returning();
     return updated;
+  }
+
+  // Pharmacies
+  async getPharmacie(id: string): Promise<Pharmacie | undefined> {
+    const [p] = await db.select().from(pharmacies).where(eq(pharmacies.id, id));
+    return p;
+  }
+  async getPharmacies(): Promise<Pharmacie[]> {
+    return db.select().from(pharmacies).orderBy(pharmacies.nom);
+  }
+  async searchPharmacies(search: string, limit: number = 30): Promise<Pharmacie[]> {
+    const conditions = [eq(pharmacies.blocked, false)];
+    if (search.length >= 2) {
+      conditions.push(ilike(pharmacies.nom, `%${search}%`));
+    }
+    return db.select().from(pharmacies).where(and(...conditions)).orderBy(pharmacies.nom).limit(limit);
+  }
+  async createPharmacie(p: InsertPharmacie): Promise<Pharmacie> {
+    const [created] = await db.insert(pharmacies).values(p).returning();
+    return created;
+  }
+  async updatePharmacie(id: string, p: Partial<InsertPharmacie>): Promise<Pharmacie | undefined> {
+    const [updated] = await db.update(pharmacies).set(p).where(eq(pharmacies.id, id)).returning();
+    return updated;
+  }
+  async bulkInsertPharmacies(rows: InsertPharmacie[]): Promise<number> {
+    if (rows.length === 0) return 0;
+    const batch = 500;
+    let total = 0;
+    for (let i = 0; i < rows.length; i += batch) {
+      const slice = rows.slice(i, i + batch);
+      await db.insert(pharmacies).values(slice);
+      total += slice.length;
+    }
+    return total;
+  }
+
+  // Grossistes
+  async getGrossiste(id: string): Promise<Grossiste | undefined> {
+    const [g] = await db.select().from(grossistes).where(eq(grossistes.id, id));
+    return g;
+  }
+  async getGrossistes(): Promise<Grossiste[]> {
+    return db.select().from(grossistes).orderBy(grossistes.nom);
+  }
+  async searchGrossistes(search: string, limit: number = 30): Promise<Grossiste[]> {
+    const conditions = [eq(grossistes.blocked, false)];
+    if (search.length >= 2) {
+      conditions.push(ilike(grossistes.nom, `%${search}%`));
+    }
+    return db.select().from(grossistes).where(and(...conditions)).orderBy(grossistes.nom).limit(limit);
+  }
+  async createGrossiste(g: InsertGrossiste): Promise<Grossiste> {
+    const [created] = await db.insert(grossistes).values(g).returning();
+    return created;
+  }
+  async updateGrossiste(id: string, g: Partial<InsertGrossiste>): Promise<Grossiste | undefined> {
+    const [updated] = await db.update(grossistes).set(g).where(eq(grossistes.id, id)).returning();
+    return updated;
+  }
+  async bulkInsertGrossistes(rows: InsertGrossiste[]): Promise<number> {
+    if (rows.length === 0) return 0;
+    const batch = 500;
+    let total = 0;
+    for (let i = 0; i < rows.length; i += batch) {
+      const slice = rows.slice(i, i + batch);
+      await db.insert(grossistes).values(slice);
+      total += slice.length;
+    }
+    return total;
   }
 
   // Products
@@ -216,8 +355,8 @@ export class DatabaseStorage implements IStorage {
     const [laboratoire, delegue, pharmacie, grossiste, lines, offers] = await Promise.all([
       this.getEntity(order.laboratoireId),
       this.getUser(order.delegueId),
-      this.getEntity(order.pharmacieId),
-      this.getEntity(order.grossisteId),
+      this.getPharmacie(order.pharmacieId),
+      this.getGrossiste(order.grossisteId),
       db.select().from(orderLines).where(eq(orderLines.orderId, id)),
       db.select().from(commercialOffers).where(eq(commercialOffers.orderId, id))
     ]);
@@ -282,8 +421,8 @@ export class DatabaseStorage implements IStorage {
       const [laboratoire, delegue, pharmacie, grossiste, lines] = await Promise.all([
         this.getEntity(order.laboratoireId),
         this.getUser(order.delegueId),
-        this.getEntity(order.pharmacieId),
-        this.getEntity(order.grossisteId),
+        this.getPharmacie(order.pharmacieId),
+        this.getGrossiste(order.grossisteId),
         db.select().from(orderLines).where(eq(orderLines.orderId, order.id))
       ]);
 
@@ -650,11 +789,13 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    const entityNames = await this.getEntities();
-    const entityMap = new Map(entityNames.map(e => [e.id, e.nom]));
+    const allPharmacies = await this.getPharmacies();
+    const allGrossistes = await this.getGrossistes();
+    const pharmacieMap = new Map(allPharmacies.map(p => [p.id, p.nom]));
+    const grossisteMap = new Map(allGrossistes.map(g => [g.id, g.nom]));
 
     const ordersByGrossiste = Object.entries(grossisteStats).map(([id, stats]) => ({
-      grossiste: entityMap.get(id) || "Inconnu",
+      grossiste: grossisteMap.get(id) || "Inconnu",
       count: stats.count,
       refusalRate: stats.count > 0 ? Math.round(stats.refusals / stats.count * 100) : 0
     }));
@@ -677,7 +818,7 @@ export class DatabaseStorage implements IStorage {
     }
     const pharmacieScoring = Object.entries(pharmacieStats)
       .map(([id, s]) => ({
-        pharmacie: entityMap.get(id) || "Inconnu",
+        pharmacie: pharmacieMap.get(id) || "Inconnu",
         pharmacieId: id,
         totalOrders: s.count,
         litiges: s.litiges,
@@ -718,7 +859,7 @@ export class DatabaseStorage implements IStorage {
         const ordersForG = orderList.filter(o => o.grossisteId === id);
         const livrees = ordersForG.filter(o => ["livree", "cloturee"].includes(o.status)).length;
         return {
-          grossiste: entityMap.get(id) || "Inconnu",
+          grossiste: grossisteMap.get(id) || "Inconnu",
           grossisteId: id,
           totalOrders: s.count,
           livrees,
