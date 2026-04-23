@@ -284,17 +284,19 @@ export default function PharmaciesPage() {
                     <TableHead>Nom</TableHead>
                     <TableHead>Région</TableHead>
                     <TableHead>Gouvernerat</TableHead>
+                    <TableHead>Délégation</TableHead>
                     <TableHead>Secteur</TableHead>
                     <TableHead>Classe</TableHead>
+                    <TableHead>Exercice</TableHead>
+                    <TableHead>Adresse</TableHead>
                     <TableHead>Propriétaire</TableHead>
                     <TableHead>Pharmacien responsable</TableHead>
-                    <TableHead>Téléphone</TableHead>
+                    <TableHead>Tel1</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPharmacies?.map((p) => {
-                    const tel = p.tel1 || p.gsm1 || "-";
                     return (
                       <TableRow key={p.id} className="hover-elevate" data-testid={`row-pharmacy-${p.id}`}>
                         <TableCell>
@@ -312,17 +314,20 @@ export default function PharmaciesPage() {
                         </TableCell>
                         <TableCell data-testid={`text-region-${p.id}`}>{p.region || "-"}</TableCell>
                         <TableCell>{p.gouvernerat || "-"}</TableCell>
+                        <TableCell data-testid={`text-delegation-${p.id}`}>{p.delegation || "-"}</TableCell>
                         <TableCell data-testid={`text-secteur-${p.id}`}>{p.secteur || "-"}</TableCell>
-                        <TableCell data-testid={`text-classification-${p.id}`}>
-                          {p.classification ? (
+                        <TableCell data-testid={`text-classe-${p.id}`}>
+                          {p.ciblage ? (
                             <Badge variant="outline" className="bg-primary/10 text-primary border-transparent">
-                              {p.classification}
+                              {p.ciblage}
                             </Badge>
                           ) : "-"}
                         </TableCell>
+                        <TableCell data-testid={`text-exercice-${p.id}`}>{p.exercice || "-"}</TableCell>
+                        <TableCell data-testid={`text-adresse-${p.id}`}>{p.adresse || "-"}</TableCell>
                         <TableCell data-testid={`text-proprietaire-${p.id}`}>{p.proprietaire || "-"}</TableCell>
                         <TableCell data-testid={`text-pharmacien-${p.id}`}>{p.pharmacienResponsable || "-"}</TableCell>
-                        <TableCell>{tel}</TableCell>
+                        <TableCell data-testid={`text-tel1-${p.id}`}>{p.tel1 || "-"}</TableCell>
                         <TableCell className="text-right">
                           <Button
                             size="icon"
