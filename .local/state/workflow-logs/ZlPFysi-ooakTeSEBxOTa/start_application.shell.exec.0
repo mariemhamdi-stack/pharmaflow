@@ -1,0 +1,20 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0KDatabase already fully seeded, skipping seed.
+Migrating 2384 pharmacies from entities table...
+Migrating 50 grossistes from entities table...
+Removing migrated rows from entities table...
+Migration error (pharmacies/grossistes): ReferenceError: require is not defined
+    at migratePharmaciesAndGrossistes [90m(/home/runner/workspace/[39mserver/seed.ts:123:31[90m)[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+    at async seedDatabase [90m(/home/runner/workspace/[39mserver/seed.ts:152:5[90m)[39m
+    at async <anonymous> [90m(/home/runner/workspace/[39mserver/index.ts:66:5[90m)[39m
+2:04:10 PM [express] serving on port 5000
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+2:04:15 PM [express] GET /api/auth/me 401 in 2ms :: {"error":"Non authentifié"}
